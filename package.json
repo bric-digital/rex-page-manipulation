@@ -1,0 +1,27 @@
+{
+    "name": "@bric/webmunk-page-manipulation",
+    "version": "0.0.1",
+    "description": "Webmunk module manipulates both page loads (including redirects) as well as visible page elements.",
+    "keywords": [
+        "extension",
+        "webmunk"
+    ],
+    "license": "UNLICENSED",
+    "author": "Behavioral Research Innovation Center",
+    "type": "module",
+    "exports": {
+        "./extension": "./src/extension.mts",
+        "./browser": "./src/browser.mts",
+        "./service-worker": "./src/service-worker.mts"
+    },
+    "scripts": {
+        "build": "tsc --build",
+        "clean": "tsc --build --clean"
+    },
+    "dependenciesOff": {
+        "@bric/webmunk-core": "../../local_modules/webmunk-core/package.json"
+    },
+    "devDependencies": {
+        "typescript": "^5.9.2"
+    }
+}
