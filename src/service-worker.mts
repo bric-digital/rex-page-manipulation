@@ -29,7 +29,9 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
           }
         }
 
-        setTimeout(this.refreshConfiguration, 1000)
+        setTimeout(() => {
+          this.refreshConfiguration()
+        }, 1000)
       })
   }
 
