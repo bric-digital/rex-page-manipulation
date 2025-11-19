@@ -144,7 +144,7 @@ class PageManipulationModule extends WebmunkClientModule {
         for (const action of elementRule.actions) {
           $(action.selector).each((index, element) => {
             if (action.action === 'hide') {
-              if ($(element).hasAttr('data-webmunk-prior-css-display') === false) {
+              if ($(element).attr('data-webmunk-prior-css-display') === undefined) {
                 const oldValue = $(element).css('display')
 
                 if (oldValue !== undefined) {
