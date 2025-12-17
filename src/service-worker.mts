@@ -113,6 +113,5 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
 const plugin = new PageManipulationModule()
 
 registerWebmunkModule(plugin)
-plugin.setup()
 
 export default plugin

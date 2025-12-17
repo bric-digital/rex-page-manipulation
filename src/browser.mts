@@ -190,13 +190,15 @@ class PageManipulationModule extends WebmunkClientModule {
       }
     }
 
-    chrome.runtime.sendMessage({
-      'messageType': 'logEvent',
-      'event': {
-        'name': 'page-manipulation',
-        'updates': blockedCount
-      }
-    })
+    if ($.isEmptyObject(blockedCount) === false) {
+      chrome.runtime.sendMessage({
+        'messageType': 'logEvent',
+        'event': {
+          'name': 'page-manipulation',
+          'updates': blockedCount
+        }
+      })
+    }
   }
 }
 
