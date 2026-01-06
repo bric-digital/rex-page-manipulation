@@ -3,10 +3,10 @@ orbs:
   node: circleci/node@7.2.1
 
 jobs:
-  build:
+  build: # this can be any name you choose
     docker:
       - image: cimg/node:24.11.0-browsers
-    executor: node/default
+    executor: node/default # use the default executor defined within the orb
     steps:
       - checkout
       - node/install-packages:
@@ -17,3 +17,8 @@ jobs:
       - run:
           name: Lint code
           command: npm run lint
+      - run:
+          name: Test code
+          command: |
+            npx playwright install chromium
+            npm run test

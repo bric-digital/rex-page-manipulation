@@ -5,7 +5,7 @@ import { WebmunkConfiguration } from '@bric/webmunk-core/extension'
 import { WebmunkClientModule, registerWebmunkModule } from '@bric/webmunk-core/browser'
 
 class PageManipulationModule extends WebmunkClientModule {
-  configuration: any
+  configuration: object
   refreshTimeout: number = 0
 
   constructor() {
@@ -139,10 +139,10 @@ class PageManipulationModule extends WebmunkClientModule {
       return
     }
 
-    let blockedCount = {}
+    const blockedCount = {}
 
     for (const elementRule of this.configuration['page_elements']) {
-      var baseUrl = elementRule['base_url']
+      const baseUrl = elementRule['base_url']
 
       if (baseUrl === undefined || window.location.href.toLowerCase().startsWith(baseUrl.toLowerCase())) {
         // Apply rule
