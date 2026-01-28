@@ -17,6 +17,25 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
     this.refreshConfiguration()
   }
 
+  configurationDetails() {
+    return {
+      page_manipulation: {
+        enabled: 'Boolean, true if module is active, false otherwise.',
+        url_redirects: [{
+          url_filter: 'URL pattern to match for redirection. See https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest for "URL filter syntax".',
+          destination: 'URL to send matched requests. May external or an internal URL within the extension.'
+        }],
+        page_elements: [{
+          base_url: 'URL to apply the associated actions to.',
+          actions: [{
+            selector: 'jQuery selector indicating which elements to act upon.',
+            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element.'
+          }]
+        }]
+      }
+    }
+  }
+
   refreshConfiguration() {
     webmunkCorePlugin.fetchConfiguration()
       .then((configuration:WebmunkConfiguration) => {
@@ -97,20 +116,36 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
       }
     }
 
-    chrome.declarativeNetRequest.getDynamicRules()
-      .then((oldRules) => {
-        const oldRuleIds = oldRules.map(rule => rule.id);
+    if (config.enabled) {
+      chrome.declarativeNetRequest.getDynamicRules()
+        .then((oldRules) => {
+          const oldRuleIds = oldRules.map(rule => rule.id);
 
-        chrome.declarativeNetRequest.updateDynamicRules({
-          removeRuleIds: oldRuleIds,
-          addRules: newRules
+          chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: oldRuleIds,
+            addRules: newRules
+          })
+          .then(() => {
+            console.log(`[page-manipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
+          }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            console.log(`Unable to update blocking rules: ${reason}`)
+          })
         })
-        .then(() => {
-          console.log(`Dynamic rules successfully updated. ${newRules.length} currently active.`)
-        }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-          console.log(`Unable to update blocking rules: ${reason}`)
+    } else {
+      chrome.declarativeNetRequest.getDynamicRules()
+        .then((oldRules) => {
+          const oldRuleIds = oldRules.map(rule => rule.id);
+
+          chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: oldRuleIds,
+          })
+          .then(() => {
+            console.log(`[page-manipulation] Dynamic rules successfully cleared.`)
+          }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            console.log(`Unable to update blocking rules: ${reason}`)
+          })
         })
-      })
+    }
   }
 }
 

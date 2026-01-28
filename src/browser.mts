@@ -139,65 +139,73 @@ class PageManipulationModule extends WebmunkClientModule {
       return
     }
 
-    const blockedCount = {}
+    if (this.configuration['enabled']) {
+      const blockedCount = {}
 
-    for (const elementRule of this.configuration['page_elements']) {
-      const baseUrl = elementRule['base_url']
+      for (const elementRule of this.configuration['page_elements']) {
+        const baseUrl = elementRule['base_url']
 
-      if (baseUrl === undefined || window.location.href.toLowerCase().startsWith(baseUrl.toLowerCase())) {
-        // Apply rule
+        if (baseUrl === undefined || window.location.href.toLowerCase().startsWith(baseUrl.toLowerCase())) {
+          // Apply rule
 
-        for (const action of elementRule.actions) {
-          $(action.selector).each((index, element) => {
-            if (action.action === 'hide') {
-              if ($(element).attr('data-webmunk-prior-css-display') === undefined) {
-                const oldValue = $(element).css('display')
+          for (const action of elementRule.actions) {
+            $(action.selector).each((index, element) => {
+              if (action.action === 'hide') {
+                if ($(element).attr('data-webmunk-prior-css-display') === undefined) {
+                  const oldValue = $(element).css('display')
 
-                if (oldValue !== undefined) {
-                  $(element).attr('data-webmunk-prior-css-display', oldValue)
+                  if (oldValue !== undefined) {
+                    $(element).attr('data-webmunk-prior-css-display', oldValue)
+                  }
+
+                  $(element).css('display', 'none')
+
+                  const key = `${action.selector}:hide`
+
+                  if (blockedCount[key] === undefined) {
+                    blockedCount[key] = 0
+                  }
+
+                  blockedCount[key] += 1
                 }
 
-                $(element).css('display', 'none')
+                console.log('hide')
+                console.log($(element))
+              } else if (action.action == 'show') {
+                const originalValue = $(element).attr('data-webmunk-prior-css-display')
 
-                const key = `${action.selector}:hide`
+                if (originalValue !== undefined) {
+                  $(element).css('display', originalValue)
+                  $(element).removeAttr('data-webmunk-prior-css-display')
 
-                if (blockedCount[key] === undefined) {
-                  blockedCount[key] = 0
+                  const key = `${action.selector}:show`
+
+                  if (blockedCount[key] === undefined) {
+                    blockedCount[key] = 0
+                  }
+
+                  blockedCount[key] += 1
+                } else {
+                  $(element).css('display', '')
                 }
 
-                blockedCount[key] += 1
+                console.log('show')
+                console.log($(element))
               }
-            } else if (action.action == 'show') {
-              const originalValue = $(element).attr('data-webmunk-prior-css-display')
-
-              if (originalValue !== undefined) {
-                $(element).css('display', originalValue)
-                $(element).removeAttr('data-webmunk-prior-css-display')
-
-                const key = `${action.selector}:show`
-
-                if (blockedCount[key] === undefined) {
-                  blockedCount[key] = 0
-                }
-
-                blockedCount[key] += 1
-              } else {
-                $(element).css('display', '')
-              }
-            }
-          })
+            })
+          }
         }
       }
-    }
 
-    if ($.isEmptyObject(blockedCount) === false) {
-      chrome.runtime.sendMessage({
-        'messageType': 'logEvent',
-        'event': {
-          'name': 'page-manipulation',
-          'updates': blockedCount
-        }
-      })
+      if ($.isEmptyObject(blockedCount) === false) {
+        chrome.runtime.sendMessage({
+          'messageType': 'logEvent',
+          'event': {
+            'name': 'page-manipulation',
+            'updates': blockedCount
+          }
+        })
+      }
     }
   }
 }
