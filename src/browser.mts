@@ -170,6 +170,7 @@ class PageManipulationModule extends WebmunkClientModule {
                 }
 
                 console.log('hide')
+                console.log(action)
                 console.log($(element))
               } else if (action.action == 'show') {
                 const originalValue = $(element).attr('data-webmunk-prior-css-display')
@@ -190,6 +191,7 @@ class PageManipulationModule extends WebmunkClientModule {
                 }
 
                 console.log('show')
+                console.log(action)
                 console.log($(element))
               }
             })
