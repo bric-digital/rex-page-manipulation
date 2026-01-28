@@ -12,6 +12,10 @@ class PageManipulationModule extends WebmunkClientModule {
     super()
   }
 
+  toString():string {
+    return 'PageManipulationModule (overrride in subclasses)'
+  }
+
   setup() {
     chrome.runtime.sendMessage({
         'messageType': 'fetchConfiguration',
