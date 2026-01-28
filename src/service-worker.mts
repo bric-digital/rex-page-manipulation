@@ -17,7 +17,7 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
     this.refreshConfiguration()
   }
 
-  configurationDetails() {
+  configurationDetails():any {
     return {
       page_manipulation: {
         enabled: 'Boolean, true if module is active, false otherwise.',
