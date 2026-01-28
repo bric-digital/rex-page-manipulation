@@ -138,6 +138,7 @@ class PageManipulationModule extends WebmunkClientModule {
 
   applyConfiguration() {
     console.log('PageManipulationModule.applyConfiguration')
+    console.log(this.configuration)
 
     if ([null, undefined].includes(this.configuration)) {
       return
