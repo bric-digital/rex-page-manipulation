@@ -5,15 +5,16 @@ import { WebmunkConfiguration } from '@bric/webmunk-core/extension'
 import { WebmunkClientModule, registerWebmunkModule } from '@bric/webmunk-core/browser'
 
 class PageManipulationModule extends WebmunkClientModule {
-  configuration: object
-  refreshTimeout: number = 0
+  configuration:object
+  refreshTimeout:number = 0
+  debug:boolean = false
 
   constructor() {
     super()
   }
 
   toString():string {
-    return 'PageManipulationModule (overrride in subclasses)'
+    return 'PageManipulationModule'
   }
 
   setup() {
@@ -137,8 +138,16 @@ class PageManipulationModule extends WebmunkClientModule {
   }
 
   applyConfiguration() {
-    console.log('PageManipulationModule.applyConfiguration')
-    console.log(this.configuration)
+    if (this.configuration['debug'] === true) {
+      this.debug = true
+    } else {
+      this.debug = false
+    }
+
+    if (this.debug) {
+      console.log(`[PageManipulation] Configuration:`)
+      console.log(this.configuration)
+    }
 
     if ([null, undefined].includes(this.configuration)) {
       return
@@ -153,12 +162,11 @@ class PageManipulationModule extends WebmunkClientModule {
         if (baseUrl === undefined || window.location.href.toLowerCase().startsWith(baseUrl.toLowerCase())) {
           // Apply rule
 
-          console.log(`Applying page manipulation rules to ${window.location.href}...`)
+          if (this.debug) {
+            console.log(`Applying page manipulation rules to ${window.location.href}...`)
+          }
 
           for (const action of elementRule.actions) {
-            console.log('Action')
-            console.log(action)
-
             $(action.selector).each((index, element) => {
               if (action.action === 'hide') {
                 if ($(element).attr('data-webmunk-prior-css-display') === undefined) {
@@ -179,9 +187,11 @@ class PageManipulationModule extends WebmunkClientModule {
                   blockedCount[key] += 1
                 }
 
-                console.log('hide')
-                console.log(action)
-                console.log($(element))
+                if (this.debug) {
+                  console.log('[PageManipulation] Hide element:')
+                  console.log(action)
+                  console.log($(element))
+                }
               } else if (action.action == 'show') {
                 const originalValue = $(element).attr('data-webmunk-prior-css-display')
 
@@ -200,14 +210,18 @@ class PageManipulationModule extends WebmunkClientModule {
                   $(element).css('display', '')
                 }
 
-                console.log('show')
-                console.log(action)
-                console.log($(element))
+                if (this.debug) {
+                  console.log('[PageManipulation] Show element:')
+                  console.log(action)
+                  console.log($(element))
+                }
               }
             })
           }
         } else {
-          console.log(`Skip applying page manipulation rules to ${window.location.href}...`)
+          if (this.debug) {
+            console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
+          }
         }
       }
 

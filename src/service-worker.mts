@@ -5,6 +5,8 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
   urlRedirects = []
   pageElements = []
 
+  debug:boolean = false
+
   constructor() {
     super()
   }
@@ -21,6 +23,7 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
     return {
       page_manipulation: {
         enabled: 'Boolean, true if module is active, false otherwise.',
+        debug: 'Boolean, true if debug logging is active, false otherwise.',
         url_redirects: [{
           url_filter: 'URL pattern to match for redirection. See https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest for "URL filter syntax".',
           destination: 'URL to send matched requests. May external or an internal URL within the extension.'
@@ -42,8 +45,10 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
         if (configuration !== undefined) {
           const pageManipulationConfig = configuration['page_manipulation']
 
-          console.log(`[page_manipulation] configuration`)
-          console.log(configuration)
+          if (this.debug) {
+            console.log(`[PageManipulation] Configuration:`)
+            console.log(pageManipulationConfig)
+          }
 
           if (pageManipulationConfig !== undefined) {
             this.updateConfiguration(pageManipulationConfig)
@@ -94,6 +99,12 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
   }
 
   updateConfiguration(config) {
+    if (config.debug === true) {
+      this.debug = true
+    } else {
+      this.debug = false
+    }
+
     this.urlRedirects = config['url_redirects']
 
     if ([null, undefined].includes(this.urlRedirects)) {
@@ -129,12 +140,19 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
             addRules: newRules
           })
           .then(() => {
-            console.log(`[page-manipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
+            if (this.debug) {
+              console.log(`[PageManipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
+            }
+
           }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            console.log(`Unable to update blocking rules: ${reason}`)
+            console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
           })
         })
     } else {
+      if (this.debug) {
+        console.log(`[PageManipulation] Module included in extension, but disabled via configuration.`)
+      }
+
       chrome.declarativeNetRequest.getDynamicRules()
         .then((oldRules) => {
           const oldRuleIds = oldRules.map(rule => rule.id);
@@ -143,9 +161,13 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
             removeRuleIds: oldRuleIds,
           })
           .then(() => {
-            console.log(`[page-manipulation] Dynamic rules successfully cleared.`)
+            if (this.debug) {
+              console.log(`[PageManipulation] Dynamic rules successfully cleared.`)
+            }
           }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            console.log(`Unable to update blocking rules: ${reason}`)
+            if (this.debug) {
+              console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
+            }
           })
         })
     }
