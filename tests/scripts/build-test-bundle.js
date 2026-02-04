@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Build script to bundle list-utilities.mts for browser testing
+ * Build script to bundle browser.mts for browser testing
  * Uses esbuild to create a single browser-compatible bundle
  */
 

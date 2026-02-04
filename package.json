@@ -1,21 +1,21 @@
 {
-    "name": "@bric/webmunk-page-manipulation",
+    "name": "@bric/rex-page-manipulation",
     "version": "0.0.1",
-    "description": "Webmunk module that manipulates page loads and elements within loaded pages.",
+    "description": "REX module that manipulates page loads and elements within loaded pages.",
     "keywords": [
         "extension",
-        "webmunk"
+        "rex"
     ],
     "author": "Behavioral Research Innovation Center",
     "type": "module",
     "main": "index.mts",
-    "homepage": "https://github.com/bric-digital/webmunk-page-manipulation",
+    "homepage": "https://github.com/bric-digital/rex-page-manipulation",
     "bugs": {
-        "url": "https://github.com/bric-digital/webmunk-page-manipulation/issues"
+        "url": "https://github.com/bric-digital/rex-page-manipulation/issues"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/bric-digital/webmunk-page-manipulation.git"
+        "url": "git+https://github.com/bric-digital/rex-page-manipulation.git"
     },
     "exports": {
         "./extension": "./src/extension.mts",
@@ -46,7 +46,7 @@
         "typescript-eslint": "^8.46.3"
     },
     "dependencies": {
-        "@bric/webmunk-core": "github:bric-digital/webmunk-core",
+        "@bric/rex-core": "github:bric-digital/rex-core",
         "jquery": "^3.7.1"
     }
 }

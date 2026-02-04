@@ -1,7 +1,7 @@
-import { WebmunkConfiguration } from '@bric/webmunk-core/extension'
-import webmunkCorePlugin, { WebmunkServiceWorkerModule, registerWebmunkModule } from '@bric/webmunk-core/service-worker'
+import { REXConfiguration } from '@bric/rex-core/extension'
+import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/rex-core/service-worker'
 
-class PageManipulationModule extends WebmunkServiceWorkerModule {
+class PageManipulationModule extends REXServiceWorkerModule {
   urlRedirects = []
   pageElements = []
 
@@ -19,7 +19,7 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
     this.refreshConfiguration()
   }
 
-  configurationDetails():any {
+  configurationDetails():any { // eslint-disable-line @typescript-eslint/no-explicit-any
     return {
       page_manipulation: {
         enabled: 'Boolean, true if module is active, false otherwise.',
@@ -40,8 +40,8 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
   }
 
   refreshConfiguration() {
-    webmunkCorePlugin.fetchConfiguration()
-      .then((configuration:WebmunkConfiguration) => {
+    rexCorePlugin.fetchConfiguration()
+      .then((configuration:REXConfiguration) => {
         if (configuration !== undefined) {
           const pageManipulationConfig = configuration['page_manipulation']
 
@@ -176,6 +176,6 @@ class PageManipulationModule extends WebmunkServiceWorkerModule {
 
 const plugin = new PageManipulationModule()
 
-registerWebmunkModule(plugin)
+registerREXModule(plugin)
 
 export default plugin

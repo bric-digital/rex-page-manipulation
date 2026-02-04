@@ -1,10 +1,10 @@
 import $ from 'jquery'
 
-import { WebmunkConfiguration } from '@bric/webmunk-core/extension'
+import { REXConfiguration } from '@bric/rex-core/extension'
 
-import { WebmunkClientModule, registerWebmunkModule } from '@bric/webmunk-core/browser'
+import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
 
-class PageManipulationModule extends WebmunkClientModule {
+class PageManipulationModule extends REXClientModule {
   configuration:object
   refreshTimeout:number = 0
   debug:boolean = false
@@ -21,7 +21,7 @@ class PageManipulationModule extends WebmunkClientModule {
     chrome.runtime.sendMessage({
         'messageType': 'fetchConfiguration',
       }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        const configuration = response as WebmunkConfiguration
+        const configuration = response as REXConfiguration
 
         this.configuration = configuration['page_manipulation']
 
@@ -169,11 +169,11 @@ class PageManipulationModule extends WebmunkClientModule {
           for (const action of elementRule.actions) {
             $(action.selector).each((index, element) => {
               if (action.action === 'hide') {
-                if ($(element).attr('data-webmunk-prior-css-display') === undefined) {
+                if ($(element).attr('data-rex-prior-css-display') === undefined) {
                   const oldValue = $(element).css('display')
 
                   if (oldValue !== undefined) {
-                    $(element).attr('data-webmunk-prior-css-display', oldValue)
+                    $(element).attr('data-rex-prior-css-display', oldValue)
                   }
 
                   $(element).css('display', 'none')
@@ -193,11 +193,11 @@ class PageManipulationModule extends WebmunkClientModule {
                   console.log($(element))
                 }
               } else if (action.action == 'show') {
-                const originalValue = $(element).attr('data-webmunk-prior-css-display')
+                const originalValue = $(element).attr('data-rex-prior-css-display')
 
                 if (originalValue !== undefined) {
                   $(element).css('display', originalValue)
-                  $(element).removeAttr('data-webmunk-prior-css-display')
+                  $(element).removeAttr('data-rex-prior-css-display')
 
                   const key = `${action.selector}:show`
 
@@ -240,6 +240,6 @@ class PageManipulationModule extends WebmunkClientModule {
 
 const plugin = new PageManipulationModule()
 
-registerWebmunkModule(plugin)
+registerREXModule(plugin)
 
 export default plugin

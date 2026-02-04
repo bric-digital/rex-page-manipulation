@@ -1,11 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Comprehensive test suite for webmunk-core list utilities
- * Tests IndexedDB operations, CRUD, pattern matching, and bulk operations
+ * Comprehensive test suite for rex-page-manipulation module.
  */
 
-test.describe('Webmunk - Page Manipulation - Browser', () => {
+test.describe('REX - Page Manipulation - Browser', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/browser.html');
     await page.waitForFunction(() => window.testUtilitiesReady === true);
