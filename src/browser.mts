@@ -241,6 +241,11 @@ class PageManipulationModule extends REXClientModule {
         }
       }
 
+      const body = document.querySelector('html')
+
+      body.style.opacity = '0.0'
+
+
       if ($.isEmptyObject(blockedCount) === false) {
         chrome.runtime.sendMessage({
           'messageType': 'logEvent',
