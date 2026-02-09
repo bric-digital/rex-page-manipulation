@@ -24,6 +24,10 @@ class PageManipulationModule extends REXServiceWorkerModule {
       page_manipulation: {
         enabled: 'Boolean, true if module is active, false otherwise.',
         debug: 'Boolean, true if debug logging is active, false otherwise.',
+        obscure_page: [{
+          base_url: 'URL to to obscure.',
+          delay: 'Number (optional), in milliseconds to wait to reveal page.',
+        }],
         url_redirects: [{
           url_filter: 'URL pattern to match for redirection. See https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest for "URL filter syntax".',
           destination: 'URL to send matched requests. May external or an internal URL within the extension.'

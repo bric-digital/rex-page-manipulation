@@ -25,6 +25,22 @@ class PageManipulationModule extends REXClientModule {
 
         this.configuration = configuration['page_manipulation']
 
+        if (this.configuration['obscure_page'] !== undefined) {
+          for (const obscure of this.configuration['obscure_page']) {
+            if (window.location.href.toLowerCase().includes(obscure['base_url'].toLowerCase())) {
+              const body = document.querySelector('html')
+
+              body.style.opacity = '0.0'
+
+              if (obscure['delay'] !== undefined) {
+                window.setTimeout(() => {
+                  body.style.opacity = '1.0'
+                }, obscure['delay'] as number)
+              }
+            }
+          }
+        }
+
         if (this.refreshTimeout == 0) {
           this.refreshTimeout = window.setTimeout(() => {
             this.applyConfiguration()
