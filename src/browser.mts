@@ -244,7 +244,7 @@ class PageManipulationModule extends REXClientModule {
       window.setTimeout(() => {
         const body = document.querySelector('html')
 
-        body.style.opacity = '0.0'
+        body.style.opacity = '1.0'
       }, 100)
 
       if ($.isEmptyObject(blockedCount) === false) {
