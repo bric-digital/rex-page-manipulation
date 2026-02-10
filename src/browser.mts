@@ -275,10 +275,14 @@ class PageManipulationModule extends REXClientModule {
 
       const body = document.querySelector('html')
 
-      if (body.style.opacity == '0.0') {
-        body.style.opacity = '1.0'
+      if (this.debug) {
+        console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
       }
 
+
+      if (parseFloat(body.style.opacity) < 1.0) {
+        body.style.opacity = '1.0'
+      }
     }
   }
 }
