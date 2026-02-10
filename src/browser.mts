@@ -231,6 +231,28 @@ class PageManipulationModule extends REXClientModule {
                   console.log(action)
                   console.log($(element))
                 }
+              } else if (action.action == 'report') {
+                const originalValue = $(element).attr('data-rex-reported')
+
+                const key = `${action.selector}:report`
+
+                if (originalValue !== undefined) {
+                  // Already recorded
+                } else {
+                  $(element).attr('data-rex-reported', `${Date.now()}`)
+
+                  if (blockedCount[key] === undefined) {
+                    blockedCount[key] = 0
+                  }
+
+                  blockedCount[key] += 1
+                }
+
+                if (this.debug) {
+                  console.log('[PageManipulation] Report element:')
+                  console.log(action)
+                  console.log($(element))
+                }
               }
             })
           }
@@ -241,12 +263,6 @@ class PageManipulationModule extends REXClientModule {
         }
       }
 
-      window.setTimeout(() => {
-        const body = document.querySelector('html')
-
-        body.style.opacity = '1.0'
-      }, 100)
-
       if ($.isEmptyObject(blockedCount) === false) {
         chrome.runtime.sendMessage({
           'messageType': 'logEvent',
@@ -256,6 +272,13 @@ class PageManipulationModule extends REXClientModule {
           }
         })
       }
+
+      const body = document.querySelector('html')
+
+      if (body.style.opacity == '0.0') {
+        body.style.opacity = '1.0'
+      }
+
     }
   }
 }
