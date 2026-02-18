@@ -268,6 +268,7 @@ class PageManipulationModule extends REXClientModule {
           'messageType': 'logEvent',
           'event': {
             'name': 'page-manipulation',
+            'url': window.location.href,
             'updates': blockedCount
           }
         })
