@@ -92,8 +92,12 @@ class PageManipulationModule extends REXServiceWorkerModule {
     if (destination !== undefined) {
       newRule.action.type = 'redirect'
 
-      const redirect = {
+      let redirect = {
         url: chrome.runtime.getURL(destination)
+      }
+
+      if (destination.includes('://')) {
+        redirect.url = destination
       }
 
       newRule.action['redirect'] = redirect
@@ -137,7 +141,13 @@ class PageManipulationModule extends REXServiceWorkerModule {
     if (config.enabled) {
       chrome.declarativeNetRequest.getDynamicRules()
         .then((oldRules) => {
-          const oldRuleIds = oldRules.map(rule => rule.id);
+          const oldRuleIds = []
+
+          for (const oldRule of oldRules) {
+            if (['redirect', 'block', 'allow'].includes(oldRule.action.type)) {
+              oldRuleIds.push(oldRule.id)
+            }
+          }
 
           chrome.declarativeNetRequest.updateDynamicRules({
             removeRuleIds: oldRuleIds,
