@@ -36,7 +36,7 @@
     "devDependencies": {
         "@eslint/js": "^10.0.1",
         "@playwright/test": "^1.48.0",
-        "@types/jquery": "^3.5.33",
+        "@types/jquery": "^4.0.0",
         "chrome-types": "^0.1.387",
         "esbuild": "^0.27.2",
         "eslint": "^10.2.0",
@@ -48,6 +48,6 @@
     "dependencies": {
         "@bric/rex-core": "github:bric-digital/rex-core",
         "@types/chrome": "^0.1.40",
-        "jquery": "^3.7.1"
+        "jquery": "^4.0.0"
     }
 }
