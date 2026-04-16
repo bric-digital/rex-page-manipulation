@@ -92,7 +92,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
     if (destination !== undefined) {
       newRule.action.type = 'redirect'
 
-      let redirect = {
+      const redirect = {
         url: chrome.runtime.getURL(destination)
       }
 
