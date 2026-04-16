@@ -1,9 +1,37 @@
 import { REXConfiguration } from '@bric/rex-core/extension'
 import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/rex-core/service-worker'
 
+export interface REXPageRedirect {
+  url_filter: string,
+  destination: string
+}
+
+export interface REXPageElementRuleAction {
+  selector: string,
+  action: string,
+}
+
+export interface REXPageElementRule {
+  base_url: string,
+  actions: REXPageElementRuleAction[]
+}
+
+export interface REXPageManipulationObscurePage {
+  base_url: string,
+  delay?: number
+}
+
+export interface REXPageManipulationConfiguration {
+  debug?: boolean,
+  enabled?: boolean,
+  url_redirects?: REXPageRedirect[],
+  obscure_page?: REXPageManipulationObscurePage[],
+  page_elements?: REXPageElementRule[]
+}
+
 class PageManipulationModule extends REXServiceWorkerModule {
-  urlRedirects = []
-  pageElements = []
+  urlRedirects?:REXPageRedirect[] = []
+  // pageElements = []
 
   debug:boolean = false
 
@@ -47,7 +75,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
     rexCorePlugin.fetchConfiguration()
       .then((configuration:REXConfiguration) => {
         if (configuration !== undefined) {
-          const pageManipulationConfig = configuration['page_manipulation']
+          const pageManipulationConfig = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
           if (this.debug) {
             console.log(`[PageManipulation] Configuration:`)
@@ -67,8 +95,8 @@ class PageManipulationModule extends REXServiceWorkerModule {
       })
   }
 
-  parseRedirect(configRule, id:number, priority:number) {
-    const newRule = {
+  parseRedirect(configRule:REXPageRedirect, id:number, priority:number):chrome.declarativeNetRequest.Rule {
+    const newRule:chrome.declarativeNetRequest.Rule = {
       id,
       priority,
       condition: {
@@ -106,7 +134,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
     return newRule
   }
 
-  updateConfiguration(config) {
+  updateConfiguration(config:REXPageManipulationConfiguration) {
     if (config.debug === true) {
       this.debug = true
     } else {
@@ -115,25 +143,21 @@ class PageManipulationModule extends REXServiceWorkerModule {
 
     this.urlRedirects = config['url_redirects']
 
-    if ([null, undefined].includes(this.urlRedirects)) {
-        this.urlRedirects = []
-    }
+    // this.pageElements = config['page_elements']
 
-    this.pageElements = config['page_elements']
+    // if ([null, undefined].includes(this.pageElements)) {
+    //     this.pageElements = []
+    // }
 
-    if ([null, undefined].includes(this.pageElements)) {
-        this.pageElements = []
-    }
+    const newRules:chrome.declarativeNetRequest.Rule[] = []
 
-    const newRules = []
+    if (this.urlRedirects !== undefined) {
+      for (const redirect of this.urlRedirects) {
+        const index = this.urlRedirects.indexOf(redirect)
+        const priority = this.urlRedirects.length - index
 
-    for (const redirect of this.urlRedirects) {
-      const index = this.urlRedirects.indexOf(redirect)
-      const priority = this.urlRedirects.length - index
+        const newRule = this.parseRedirect(redirect, (index + 1), priority)
 
-      const newRule = this.parseRedirect(redirect, (index + 1), priority)
-
-      if (![null, undefined].includes(newRule)) {
         newRules.push(newRule)
       }
     }

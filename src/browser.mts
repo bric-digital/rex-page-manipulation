@@ -3,9 +3,10 @@ import $ from 'jquery'
 import { REXConfiguration } from '@bric/rex-core/extension'
 
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
+import { REXPageManipulationConfiguration, REXPageManipulationObscurePage } from '@bric/rex-page-manipulation/service-worker'
 
 class PageManipulationModule extends REXClientModule {
-  configuration:object
+  configuration?:REXPageManipulationConfiguration
   refreshTimeout:number = 0
   debug:boolean = false
 
@@ -23,19 +24,23 @@ class PageManipulationModule extends REXClientModule {
       }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
         const configuration = response as REXConfiguration
 
-        this.configuration = configuration['page_manipulation']
+        this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        if (this.configuration['obscure_page'] !== undefined) {
-          for (const obscure of this.configuration['obscure_page']) {
-            if (window.location.href.toLowerCase().includes(obscure['base_url'].toLowerCase())) {
+        const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
+
+        if (obscurePage !== undefined) {
+          for (const obscure of obscurePage) {
+            if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
               const body = document.querySelector('html')
 
-              body.style.opacity = '0.0'
+              if (body !== null) {
+                body.style.opacity = '0.0'
 
-              if (obscure['delay'] !== undefined) {
-                window.setTimeout(() => {
-                  body.style.opacity = '1.0'
-                }, obscure['delay'] as number)
+                if (obscure.delay !== undefined) {
+                  window.setTimeout(() => {
+                    body.style.opacity = '1.0'
+                  }, obscure.delay)
+                }
               }
             }
           }
@@ -148,141 +153,150 @@ class PageManipulationModule extends REXClientModule {
 
     $.expr.pseudos.trimmedTextEquals = $.expr.createPseudo((pattern) => {
       return function(elem: Element) : boolean {
-        return ($(elem).text().match("^" + pattern + "$").length > 0)
+        const text:string = $(elem).text()
+
+        if (text !== null) {
+          const matches = text.match("^" + pattern + "$")
+
+          return (matches !== null && matches.length > 0)
+        }
+
+        return false
       }
     })
   }
 
   applyConfiguration() {
-    if (this.configuration['debug'] === true) {
-      this.debug = true
-    } else {
-      this.debug = false
-    }
+    if (this.configuration !== undefined) {
+      if (this.configuration['debug'] === true) {
+        this.debug = true
+      } else {
+        this.debug = false
+      }
 
-    if (this.debug) {
-      console.log(`[PageManipulation] Configuration:`)
-      console.log(this.configuration)
-    }
+      if (this.debug) {
+        console.log(`[PageManipulation] Configuration:`)
+        console.log(this.configuration)
+      }
 
-    if ([null, undefined].includes(this.configuration)) {
-      return
-    }
+      if (this.configuration['enabled']) {
+        const blockedCount:{[key: string]: number} = {}
 
-    if (this.configuration['enabled']) {
-      const blockedCount = {}
+        if (this.configuration['page_elements'] !== undefined) {
+          for (const elementRule of this.configuration['page_elements']) {
+            const baseUrl = elementRule['base_url']
 
-      for (const elementRule of this.configuration['page_elements']) {
-        const baseUrl = elementRule['base_url']
+            if (baseUrl === undefined || window.location.href.toLowerCase().startsWith(baseUrl.toLowerCase())) {
+              // Apply rule
 
-        if (baseUrl === undefined || window.location.href.toLowerCase().startsWith(baseUrl.toLowerCase())) {
-          // Apply rule
+              if (this.debug) {
+                console.log(`Applying page manipulation rules to ${window.location.href}...`)
+              }
 
-          if (this.debug) {
-            console.log(`Applying page manipulation rules to ${window.location.href}...`)
+              for (const action of elementRule.actions) {
+                $(action.selector).each((index, element) => {
+                  if (action.action === 'hide') {
+                    if ($(element).attr('data-rex-prior-css-display') === undefined) {
+                      const oldValue = $(element).css('display')
+
+                      if (oldValue !== undefined) {
+                        $(element).attr('data-rex-prior-css-display', oldValue)
+                      }
+
+                      $(element).css('display', 'none')
+
+                      const key = `${action.selector}:hide`
+
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
+                      }
+
+                      blockedCount[key] += 1
+                    }
+
+                    if (this.debug) {
+                      console.log('[PageManipulation] Hide element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  } else if (action.action == 'show') {
+                    const originalValue = $(element).attr('data-rex-prior-css-display')
+
+                    if (originalValue !== undefined) {
+                      $(element).css('display', originalValue)
+                      $(element).removeAttr('data-rex-prior-css-display')
+
+                      const key = `${action.selector}:show`
+
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
+                      }
+
+                      blockedCount[key] += 1
+                    } else {
+                      $(element).css('display', '')
+                    }
+
+                    if (this.debug) {
+                      console.log('[PageManipulation] Show element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  } else if (action.action == 'report') {
+                    const originalValue = $(element).attr('data-rex-reported')
+
+                    const key = `${action.selector}:report`
+
+                    if (originalValue !== undefined) {
+                      // Already recorded
+                    } else {
+                      $(element).attr('data-rex-reported', `${Date.now()}`)
+
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
+                      }
+
+                      blockedCount[key] += 1
+                    }
+
+                    if (this.debug) {
+                      console.log('[PageManipulation] Report element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  }
+                })
+              }
+            } else {
+              if (this.debug) {
+                console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
+              }
+            }
           }
 
-          for (const action of elementRule.actions) {
-            $(action.selector).each((index, element) => {
-              if (action.action === 'hide') {
-                if ($(element).attr('data-rex-prior-css-display') === undefined) {
-                  const oldValue = $(element).css('display')
-
-                  if (oldValue !== undefined) {
-                    $(element).attr('data-rex-prior-css-display', oldValue)
-                  }
-
-                  $(element).css('display', 'none')
-
-                  const key = `${action.selector}:hide`
-
-                  if (blockedCount[key] === undefined) {
-                    blockedCount[key] = 0
-                  }
-
-                  blockedCount[key] += 1
-                }
-
-                if (this.debug) {
-                  console.log('[PageManipulation] Hide element:')
-                  console.log(action)
-                  console.log($(element))
-                }
-              } else if (action.action == 'show') {
-                const originalValue = $(element).attr('data-rex-prior-css-display')
-
-                if (originalValue !== undefined) {
-                  $(element).css('display', originalValue)
-                  $(element).removeAttr('data-rex-prior-css-display')
-
-                  const key = `${action.selector}:show`
-
-                  if (blockedCount[key] === undefined) {
-                    blockedCount[key] = 0
-                  }
-
-                  blockedCount[key] += 1
-                } else {
-                  $(element).css('display', '')
-                }
-
-                if (this.debug) {
-                  console.log('[PageManipulation] Show element:')
-                  console.log(action)
-                  console.log($(element))
-                }
-              } else if (action.action == 'report') {
-                const originalValue = $(element).attr('data-rex-reported')
-
-                const key = `${action.selector}:report`
-
-                if (originalValue !== undefined) {
-                  // Already recorded
-                } else {
-                  $(element).attr('data-rex-reported', `${Date.now()}`)
-
-                  if (blockedCount[key] === undefined) {
-                    blockedCount[key] = 0
-                  }
-
-                  blockedCount[key] += 1
-                }
-
-                if (this.debug) {
-                  console.log('[PageManipulation] Report element:')
-                  console.log(action)
-                  console.log($(element))
-                }
+          if ($.isEmptyObject(blockedCount) === false) {
+            chrome.runtime.sendMessage({
+              'messageType': 'logEvent',
+              'event': {
+                'name': 'page-manipulation',
+                'url': window.location.href,
+                'updates': blockedCount
               }
             })
           }
-        } else {
+
+          const body = document.querySelector('html')
+
           if (this.debug) {
             console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
           }
-        }
-      }
 
-      if ($.isEmptyObject(blockedCount) === false) {
-        chrome.runtime.sendMessage({
-          'messageType': 'logEvent',
-          'event': {
-            'name': 'page-manipulation',
-            'url': window.location.href,
-            'updates': blockedCount
+          if (body !== null) {
+            if (parseFloat(body.style.opacity) < 1.0) {
+              body.style.opacity = '1.0'
+            }
           }
-        })
-      }
-
-      const body = document.querySelector('html')
-
-      if (this.debug) {
-        console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
-      }
-
-
-      if (parseFloat(body.style.opacity) < 1.0) {
-        body.style.opacity = '1.0'
+        }
       }
     }
   }
