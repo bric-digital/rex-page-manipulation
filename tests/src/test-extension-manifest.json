@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "REX Page Manipulation Test Extension",
+  "name": "REX Core Test Extension",
   "version": "1.0.0",
-  "description": "Test extension for rex-page-manipulation.",
+  "description": "Test extension for rex-core modules",
   "permissions": [
     "storage"
   ],
   "action": {
-    "default_popup": "test-popup.html"
+    "default_popup": "index.html"
   },
   "background": {
     "service_worker": "test-service-worker.js",

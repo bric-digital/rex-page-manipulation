@@ -1,8 +1,8 @@
-import $ from 'jquery'
+import { $ } from 'jquery'
 
-import { REXConfiguration } from '@bric/rex-core/extension'
-
+import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
+
 import { REXPageManipulationConfiguration, REXPageManipulationObscurePage } from '@bric/rex-page-manipulation/service-worker'
 
 class PageManipulationModule extends REXClientModule {
@@ -26,19 +26,33 @@ class PageManipulationModule extends REXClientModule {
 
         this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
+        if (this.debug) {
+          console.log(`Got config...`)
+          console.log(this.configuration)
+        }
+
         const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
 
         if (obscurePage !== undefined) {
           for (const obscure of obscurePage) {
+            if (this.debug) {
+              console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+            }
+            
             if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
+
+              if (this.debug) {
+                console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
+              }
+
               const body = document.querySelector('html')
 
               if (body !== null) {
-                body.style.opacity = '0.0'
+                body.style.opacity = '0'
 
                 if (obscure.delay !== undefined) {
                   window.setTimeout(() => {
-                    body.style.opacity = '1.0'
+                    body.style.opacity = '1'
                   }, obscure.delay)
                 }
               }
@@ -190,10 +204,15 @@ class PageManipulationModule extends REXClientModule {
               // Apply rule
 
               if (this.debug) {
-                console.log(`Applying page manipulation rules to ${window.location.href}...`)
+                console.log(`Applying page manipulation rule to ${window.location.href}...`)
+                console.log(elementRule)
               }
 
               for (const action of elementRule.actions) {
+                if (this.debug) {
+                  console.log(`Matches for ${action.selector}: ${$(action.selector).length}.`)
+                }
+
                 $(action.selector).each((index, element) => {
                   if (action.action === 'hide') {
                     if ($(element).attr('data-rex-prior-css-display') === undefined) {
@@ -283,18 +302,6 @@ class PageManipulationModule extends REXClientModule {
                 'updates': blockedCount
               }
             })
-          }
-
-          const body = document.querySelector('html')
-
-          if (this.debug) {
-            console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
-          }
-
-          if (body !== null) {
-            if (parseFloat(body.style.opacity) < 1.0) {
-              body.style.opacity = '1.0'
-            }
           }
         }
       }

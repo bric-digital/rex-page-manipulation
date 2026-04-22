@@ -1,4 +1,4 @@
-import { REXConfiguration } from '@bric/rex-core/extension'
+import { REXConfiguration } from '@bric/rex-core/common'
 import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/rex-core/service-worker'
 
 export interface REXPageRedirect {
@@ -180,6 +180,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
           .then(() => {
             if (this.debug) {
               console.log(`[PageManipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
+              console.log(newRules)
             }
 
           }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any

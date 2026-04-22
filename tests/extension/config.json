@@ -1,0 +1,31 @@
+{
+    "configuration_url": "config.json",
+    "identifier": "rex-page-manipulation-test",
+    "page_manipulation": {
+        "enabled": true,
+        "debug": true,
+        "obscure_page": [{
+            "base_url": "https://archive.org/",
+            "delay": 1500
+        }],
+        "url_redirects": [{
+            "url_filter": "||coca-cola.com"
+        }],
+        "url_redirects_old": [{
+            "url_filter": "||coca-cola.com",
+            "destination": "https://www.pepsi.com/"
+        }],
+        "page_elements": [{
+          "base_url": "https://www.wikipedia.org/",
+          "actions": [{
+            "selector": "#js-link-box-en",
+            "action": "hide"
+          }]
+        }]
+    },
+    "ui": [{
+        "title": "REX Page Manipulation Testing Extension",
+        "identifier": "main",
+        "default": true
+    }]
+}
