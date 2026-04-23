@@ -1,4 +1,4 @@
-import { $ } from 'jquery'
+import $ from 'jquery'
 
 import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
