@@ -3,7 +3,44 @@ import $ from 'jquery'
 import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
 
-import { REXPageManipulationConfiguration, REXPageManipulationObscurePage } from '@bric/rex-page-manipulation/service-worker'
+import { REXContentExtractor, REXPageManipulationConfiguration, REXPageManipulationObscurePage } from '@bric/rex-page-manipulation/service-worker'
+
+async function sha256(cleartext:string):Promise<string> {
+  const msgUint8 = new TextEncoder().encode(cleartext)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8)
+  const hexBytes = new Uint8Array(hashBuffer)
+  return Array.from(hexBytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function extractContent($el:JQuery<HTMLElement>, extractor:REXContentExtractor):string | null {
+  let raw:string | undefined
+
+  if (extractor.source === 'text') {
+    raw = $el.text()
+  } else if (extractor.source === 'attr' && extractor.name !== undefined) {
+    raw = $el.attr(extractor.name)
+  }
+
+  if (raw === undefined || raw === null) {
+    return null
+  }
+
+  if (extractor.transform === 'domain') {
+    try {
+      return new URL(raw).hostname.replace(/^www\./, '')
+    } catch {
+      return null
+    }
+  }
+
+  return raw
+}
+
+function hashMatchesFraction(hashHex:string, fraction:number, precision:number):boolean {
+  const clampedPrecision = Math.max(1, Math.min(13, precision))
+  const tail = parseInt(hashHex.slice(-clampedPrecision), 16)
+  return tail / 16 ** clampedPrecision < fraction
+}
 
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
@@ -18,56 +55,72 @@ class PageManipulationModule extends REXClientModule {
     return 'PageManipulationModule'
   }
 
-  setup() {
+  loadConfiguration() {
     chrome.runtime.sendMessage({
-        'messageType': 'fetchConfiguration',
-      }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        const configuration = response as REXConfiguration
+      'messageType': 'fetchConfiguration',
+    }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      // Retry until the config is in chrome.storage.local — the extension UI
+      // writes it asynchronously and the page bundle can run before it lands.
+      if (response === null || response === undefined) {
+        window.setTimeout(() => this.loadConfiguration(), 250)
+        return
+      }
 
-        this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
+      const configuration = response as REXConfiguration
 
-        if (this.debug) {
-          console.log(`Got config...`)
-          console.log(this.configuration)
-        }
+      this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
+      if (this.configuration === undefined) {
+        window.setTimeout(() => this.loadConfiguration(), 250)
+        return
+      }
 
-        if (obscurePage !== undefined) {
-          for (const obscure of obscurePage) {
+      if (this.debug) {
+        console.log(`Got config...`)
+        console.log(this.configuration)
+      }
+
+      const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
+
+      if (obscurePage !== undefined) {
+        for (const obscure of obscurePage) {
+          if (this.debug) {
+            console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+          }
+
+          if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
+
             if (this.debug) {
-              console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+              console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
             }
-            
-            if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
 
-              if (this.debug) {
-                console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
-              }
+            const body = document.querySelector('html')
 
-              const body = document.querySelector('html')
+            if (body !== null) {
+              body.style.opacity = '0'
 
-              if (body !== null) {
-                body.style.opacity = '0'
-
-                if (obscure.delay !== undefined) {
-                  window.setTimeout(() => {
-                    body.style.opacity = '1'
-                  }, obscure.delay)
-                }
+              if (obscure.delay !== undefined) {
+                window.setTimeout(() => {
+                  body.style.opacity = '1'
+                }, obscure.delay)
               }
             }
           }
         }
+      }
 
-        if (this.refreshTimeout == 0) {
-          this.refreshTimeout = window.setTimeout(() => {
-            this.applyConfiguration()
+      if (this.refreshTimeout == 0) {
+        this.refreshTimeout = window.setTimeout(() => {
+          this.applyConfiguration()
 
-            this.refreshTimeout = 0
-          }, 250)
-        }
-      })
+          this.refreshTimeout = 0
+        }, 250)
+      }
+    })
+  }
+
+  setup() {
+    this.loadConfiguration()
 
     new MutationObserver(() => {
         if (this.refreshTimeout == 0) {
@@ -283,6 +336,57 @@ class PageManipulationModule extends REXClientModule {
                       console.log(action)
                       console.log($(element))
                     }
+                  } else if (action.action == 'add_class') {
+                    if ($(element).attr('data-rex-class-processed') !== undefined) {
+                      return
+                    }
+                    $(element).attr('data-rex-class-processed', `${Date.now()}`)
+
+                    const className = action.class_name ?? 'hash_match'
+                    const key = `${action.selector}:add_class`
+                    const debug = this.debug
+
+                    if (action.content === undefined) {
+                      $(element).addClass(className)
+
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
+                      }
+                      blockedCount[key] += 1
+
+                      if (debug) {
+                        console.log('[PageManipulation] add_class (unconditional):')
+                        console.log(action)
+                        console.log($(element))
+                      }
+
+                      return
+                    }
+
+                    const content = extractContent($(element), action.content)
+                    if (content === null) {
+                      return
+                    }
+
+                    const fraction = action.fraction ?? 0.1
+                    const precision = action.precision ?? 8
+
+                    sha256(content).then((hash) => {
+                      if (hashMatchesFraction(hash, fraction, precision)) {
+                        $(element).addClass(className)
+
+                        if (blockedCount[key] === undefined) {
+                          blockedCount[key] = 0
+                        }
+                        blockedCount[key] += 1
+
+                        if (debug) {
+                          console.log(`[PageManipulation] add_class (hash match, ${content} → ${hash.slice(-precision)}):`)
+                          console.log(action)
+                          console.log($(element))
+                        }
+                      }
+                    })
                   }
                 })
               }

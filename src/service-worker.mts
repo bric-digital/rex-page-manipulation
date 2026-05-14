@@ -6,9 +6,21 @@ export interface REXPageRedirect {
   destination: string
 }
 
+export interface REXContentExtractor {
+  source: 'text' | 'attr',
+  name?: string,
+  transform?: 'none' | 'domain',
+}
+
 export interface REXPageElementRuleAction {
   selector: string,
   action: string,
+  // Used when action === 'add_class':
+  class_name?: string,
+  content?: REXContentExtractor,
+  fraction?: number,
+  precision?: number,
+  algorithm?: 'sha256',
 }
 
 export interface REXPageElementRule {
@@ -64,7 +76,12 @@ class PageManipulationModule extends REXServiceWorkerModule {
           base_url: 'URL to apply the associated actions to.',
           actions: [{
             selector: 'jQuery selector indicating which elements to act upon.',
-            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element.'
+            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element, "report" to mark element as observed, "add_class" to add a CSS class (optionally gated on a hash filter).',
+            class_name: 'String (add_class only). CSS class to add. Defaults to "hash_match".',
+            content: 'Object (add_class only). Content extractor: { source: "text" | "attr", name?: attribute name, transform?: "none" | "domain" }. If omitted, the class is added unconditionally to every match.',
+            fraction: 'Number (add_class only). 0.0–1.0 share of hash space; element is classed iff its hashed content falls in the first `fraction` of the space. Defaults to 0.1.',
+            precision: 'Number (add_class only). Trailing hex chars of the hash used as a uniform integer. Defaults to 8 (32 bits).',
+            algorithm: 'String (add_class only). Hash algorithm. Defaults to "sha256".'
           }]
         }]
       }

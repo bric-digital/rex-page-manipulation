@@ -25,6 +25,37 @@ test.describe('REX Page Manipulation', () => {
     await expect(englishLink).toBeHidden()
   });
 
+  test('add_class applies the default hash_match class when no content extractor is configured', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    await page.goto('/links.html');
+    await expect(page.locator('#link-0')).toHaveClass(/(^|\s)hash_match(\s|$)/);
+  });
+
+  test('add_class with fraction hashes domains deterministically and selects exactly the precomputed indices', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    // Precomputed by tests/scripts/compute-expected-matches.js for sha256 over
+    // each fixture link's hostname, last-8-hex-chars / 2^32 < 0.2:
+    const EXPECTED_MATCHES = [5, 10, 11, 14, 18, 19, 22, 23, 37, 48];
+
+    const collect = async () => {
+      const out = await page.evaluate(() => {
+        const matched = [];
+        document.querySelectorAll("a[id^='link-']").forEach((a) => {
+          if (a.classList.contains('hash_test_marker')) {
+            matched.push(parseInt(a.id.slice('link-'.length), 10));
+          }
+        });
+        return matched.sort((a, b) => a - b);
+      });
+      return out;
+    };
+
+    await page.goto('/links.html');
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_MATCHES);
+
+    // Determinism on reload.
+    await page.reload();
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_MATCHES);
+  });
+
   test('Test that initial page obfuscation works.', async ({ page }) => {
     const body = await page.locator('css=body')
 
