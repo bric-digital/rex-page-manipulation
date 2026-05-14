@@ -33,6 +33,13 @@
             "content": { "source": "attr", "name": "href", "transform": "domain" },
             "fraction": 0.2,
             "precision": 8
+          }, {
+            "action": "add_class",
+            "selector": "li[id^='li-']",
+            "class_name": "hash_test_within_marker",
+            "content": { "source": "attr", "name": "href", "transform": "domain", "within": "a" },
+            "fraction": 0.2,
+            "precision": 8
           }]
         }]
     },

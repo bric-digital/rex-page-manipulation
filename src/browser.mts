@@ -13,12 +13,18 @@ async function sha256(cleartext:string):Promise<string> {
 }
 
 function extractContent($el:JQuery<HTMLElement>, extractor:REXContentExtractor):string | null {
+  const $source = extractor.within ? $el.find(extractor.within).first() : $el
+
+  if ($source.length === 0) {
+    return null
+  }
+
   let raw:string | undefined
 
   if (extractor.source === 'text') {
-    raw = $el.text()
+    raw = $source.text()
   } else if (extractor.source === 'attr' && extractor.name !== undefined) {
-    raw = $el.attr(extractor.name)
+    raw = $source.attr(extractor.name)
   }
 
   if (raw === undefined || raw === null) {
