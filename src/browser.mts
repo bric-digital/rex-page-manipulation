@@ -55,12 +55,55 @@ class PageManipulationModule extends REXClientModule {
   refreshTimeout:number = 0
   debug:boolean = false
 
+  // Telemetry accumulator. Counts survive across applyConfiguration passes and
+  // the async hash boundary (unlike a per-pass local), then flush as a single
+  // debounced logEvent. Counts are deltas — reset to {} after each flush.
+  eventCounts:{[key: string]: number} = {}
+  flushTimeout:number = 0
+
   constructor() {
     super()
   }
 
   toString():string {
     return 'PageManipulationModule'
+  }
+
+  recordEvent(key:string) {
+    if (this.eventCounts[key] === undefined) {
+      this.eventCounts[key] = 0
+    }
+    this.eventCounts[key] += 1
+
+    if (this.flushTimeout === 0) {
+      this.flushTimeout = window.setTimeout(() => {
+        this.flushTimeout = 0
+        this.flushEvents()
+      }, 500)
+    }
+  }
+
+  flushEvents() {
+    if ($.isEmptyObject(this.eventCounts)) {
+      return
+    }
+
+    const updates = this.eventCounts
+    this.eventCounts = {}
+
+    if (this.debug) {
+      console.log('[PageManipulation] Flushing telemetry:')
+      console.log(updates)
+    }
+
+    chrome.runtime.sendMessage({
+      'messageType': 'logEvent',
+      'event': {
+        'name': 'page-manipulation',
+        'url': window.location.href,
+        'updates': updates
+      }
+    })
   }
 
   loadConfiguration() {
@@ -255,8 +298,6 @@ class PageManipulationModule extends REXClientModule {
       }
 
       if (this.configuration['enabled']) {
-        const blockedCount:{[key: string]: number} = {}
-
         if (this.configuration['page_elements'] !== undefined) {
           for (const elementRule of this.configuration['page_elements']) {
             const baseUrl = elementRule['base_url']
@@ -285,13 +326,7 @@ class PageManipulationModule extends REXClientModule {
 
                       $(element).css('display', 'none')
 
-                      const key = `${action.selector}:hide`
-
-                      if (blockedCount[key] === undefined) {
-                        blockedCount[key] = 0
-                      }
-
-                      blockedCount[key] += 1
+                      this.recordEvent(`${action.selector}::hide`)
                     }
 
                     if (this.debug) {
@@ -306,13 +341,7 @@ class PageManipulationModule extends REXClientModule {
                       $(element).css('display', originalValue)
                       $(element).removeAttr('data-rex-prior-css-display')
 
-                      const key = `${action.selector}:show`
-
-                      if (blockedCount[key] === undefined) {
-                        blockedCount[key] = 0
-                      }
-
-                      blockedCount[key] += 1
+                      this.recordEvent(`${action.selector}::show`)
                     } else {
                       $(element).css('display', '')
                     }
@@ -325,18 +354,12 @@ class PageManipulationModule extends REXClientModule {
                   } else if (action.action == 'report') {
                     const originalValue = $(element).attr('data-rex-reported')
 
-                    const key = `${action.selector}:report`
-
                     if (originalValue !== undefined) {
                       // Already recorded
                     } else {
                       $(element).attr('data-rex-reported', `${Date.now()}`)
 
-                      if (blockedCount[key] === undefined) {
-                        blockedCount[key] = 0
-                      }
-
-                      blockedCount[key] += 1
+                      this.recordEvent(`${action.selector}::report`)
                     }
 
                     if (this.debug) {
@@ -365,15 +388,12 @@ class PageManipulationModule extends REXClientModule {
                     processedClasses.push(className)
                     $(element).attr('data-rex-class-processed', processedClasses.join(' '))
 
-                    const key = `${action.selector}:add_class`
+                    const eventKey = `${action.selector}::${className}`
 
                     if (action.content === undefined) {
                       $(element).addClass(className)
 
-                      if (blockedCount[key] === undefined) {
-                        blockedCount[key] = 0
-                      }
-                      blockedCount[key] += 1
+                      this.recordEvent(`${eventKey}::applied`)
 
                       if (debug) {
                         console.log(`[PageManipulation] add_class | unconditional → +${className}`)
@@ -390,6 +410,13 @@ class PageManipulationModule extends REXClientModule {
                       return
                     }
 
+                    if (action.exceptions !== undefined && action.exceptions.includes(content)) {
+                      if (debug) {
+                        console.log(`[PageManipulation] add_class | content="${content}" → skip (in exceptions list)`)
+                      }
+                      return
+                    }
+
                     const fraction = action.fraction ?? 0.1
                     const offset = action.offset ?? 0
                     const precision = action.precision ?? 8
@@ -398,6 +425,8 @@ class PageManipulationModule extends REXClientModule {
                       const position = hashPosition(hash, precision)
                       const matched = position >= offset && position < offset + fraction
 
+                      this.recordEvent(`${eventKey}::evaluated`)
+
                       if (debug) {
                         console.log(`[PageManipulation] add_class | content="${content}" pos=${position.toFixed(4)} window=[${offset.toFixed(4)}, ${(offset + fraction).toFixed(4)}) → ${matched ? `MATCH (+${className})` : 'skip'}`)
                       }
@@ -405,10 +434,7 @@ class PageManipulationModule extends REXClientModule {
                       if (matched) {
                         $(element).addClass(className)
 
-                        if (blockedCount[key] === undefined) {
-                          blockedCount[key] = 0
-                        }
-                        blockedCount[key] += 1
+                        this.recordEvent(`${eventKey}::matched`)
                       }
                     })
                   }
@@ -419,17 +445,6 @@ class PageManipulationModule extends REXClientModule {
                 console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
               }
             }
-          }
-
-          if ($.isEmptyObject(blockedCount) === false) {
-            chrome.runtime.sendMessage({
-              'messageType': 'logEvent',
-              'event': {
-                'name': 'page-manipulation',
-                'url': window.location.href,
-                'updates': blockedCount
-              }
-            })
           }
         }
       }

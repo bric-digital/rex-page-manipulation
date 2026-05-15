@@ -47,6 +47,51 @@ test.describe('REX Page Manipulation', () => {
     await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_MATCHES);
   });
 
+  test('add_class reports evaluated and matched counts via logEvent', async ({ page, serviceWorker }) => {
+    await page.goto('/links.html');
+    await page.waitForTimeout(2000); // allow the debounced telemetry flush to fire
+
+    const events = await serviceWorker.evaluate(() => self['capturedLogEvents'] || []);
+
+    // Merge every page-manipulation event's updates (counts are deltas).
+    const merged = {};
+    for (const e of events) {
+      if (e.name !== 'page-manipulation') continue;
+      for (const [k, v] of Object.entries(e.updates || {})) {
+        merged[k] = (merged[k] || 0) + v;
+      }
+    }
+
+    // hash_test_marker rule: a[id^='link-'] (50 elements), fraction 0.2.
+    expect(merged["a[id^='link-']::hash_test_marker::evaluated"]).toBe(50);
+    expect(merged["a[id^='link-']::hash_test_marker::matched"]).toBe(10);
+
+    // hash_exception_marker rule: youtube.com is excluded *before* the hash,
+    // so it counts as neither evaluated nor matched — 49 evaluated, 9 matched.
+    expect(merged["a[id^='link-']::hash_exception_marker::evaluated"]).toBe(49);
+    expect(merged["a[id^='link-']::hash_exception_marker::matched"]).toBe(9);
+  });
+
+  test('add_class with exceptions never classes listed content even when it is in the window', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    // offset=0, fraction=0.2 window is [5,10,11,14,18,19,22,23,37,48].
+    // Index 5 is youtube.com (see tests/src/links.html). With
+    // exceptions: ["youtube.com"], index 5 must be excluded.
+    const EXPECTED_WITH_EXCEPTION = [10, 11, 14, 18, 19, 22, 23, 37, 48];
+
+    const collect = async () => page.evaluate(() => {
+      const matched = [];
+      document.querySelectorAll("a[id^='link-']").forEach((a) => {
+        if (a.classList.contains('hash_exception_marker')) {
+          matched.push(parseInt(a.id.slice('link-'.length), 10));
+        }
+      });
+      return matched.sort((a, b) => a - b);
+    });
+
+    await page.goto('/links.html');
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_WITH_EXCEPTION);
+  });
+
   test('add_class with offset selects the hash window [offset, offset+fraction)', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
     // Precomputed by tests/scripts/compute-expected-matches.js for offset=0.2,
     // fraction=0.2 — i.e. hash position in [0.2, 0.4). Disjoint from the

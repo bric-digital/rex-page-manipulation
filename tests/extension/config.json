@@ -48,6 +48,14 @@
             "offset": 0.2,
             "fraction": 0.2,
             "precision": 8
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "hash_exception_marker",
+            "content": { "source": "attr", "name": "href", "transform": "domain" },
+            "fraction": 0.2,
+            "precision": 8,
+            "exceptions": ["youtube.com"]
           }]
         }]
     },

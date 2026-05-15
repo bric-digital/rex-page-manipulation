@@ -22,7 +22,7 @@ export interface REXPageElementRuleAction {
   fraction?: number,
   offset?: number,
   precision?: number,
-  algorithm?: 'sha256',
+  exceptions?: string[],
 }
 
 export interface REXPageElementRule {
@@ -84,7 +84,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
             fraction: 'Number (add_class only). 0.0–1.0 width of the hash window; element is classed iff its hashed content maps into [offset, offset + fraction). Defaults to 0.1.',
             offset: 'Number (add_class only). 0.0–1.0 start of the hash window; lets you select a different slice of equal width (e.g. offset 0.1 + fraction 0.1 = the second 10%). Defaults to 0.',
             precision: 'Number (add_class only). Trailing hex chars of the hash used as a uniform integer. Defaults to 8 (32 bits).',
-            algorithm: 'String (add_class only). Hash algorithm. Defaults to "sha256".'
+            exceptions: 'Array of strings (add_class only). Extracted content values that are never classed, even when their hash falls inside the window. Compared by exact match against the post-transform content (e.g. with transform "domain", list "chase.com"). Defaults to empty.'
           }]
         }]
       }
