@@ -47,6 +47,26 @@ test.describe('REX Page Manipulation', () => {
     await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_MATCHES);
   });
 
+  test('add_class with offset selects the hash window [offset, offset+fraction)', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    // Precomputed by tests/scripts/compute-expected-matches.js for offset=0.2,
+    // fraction=0.2 — i.e. hash position in [0.2, 0.4). Disjoint from the
+    // offset=0 set, confirming the window shifted rather than widened.
+    const EXPECTED_OFFSET_MATCHES = [0, 1, 20, 24, 25, 29, 42];
+
+    const collect = async () => page.evaluate(() => {
+      const matched = [];
+      document.querySelectorAll("a[id^='link-']").forEach((a) => {
+        if (a.classList.contains('hash_offset_marker')) {
+          matched.push(parseInt(a.id.slice('link-'.length), 10));
+        }
+      });
+      return matched.sort((a, b) => a - b);
+    });
+
+    await page.goto('/links.html');
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_OFFSET_MATCHES);
+  });
+
   test('add_class with fraction hashes domains deterministically and selects exactly the precomputed indices', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
     // Precomputed by tests/scripts/compute-expected-matches.js for sha256 over
     // each fixture link's hostname, last-8-hex-chars / 2^32 < 0.2:

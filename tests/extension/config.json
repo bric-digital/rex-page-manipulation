@@ -40,6 +40,14 @@
             "content": { "source": "attr", "name": "href", "transform": "domain", "within": "a" },
             "fraction": 0.2,
             "precision": 8
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "hash_offset_marker",
+            "content": { "source": "attr", "name": "href", "transform": "domain" },
+            "offset": 0.2,
+            "fraction": 0.2,
+            "precision": 8
           }]
         }]
     },

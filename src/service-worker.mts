@@ -20,6 +20,7 @@ export interface REXPageElementRuleAction {
   class_name?: string,
   content?: REXContentExtractor,
   fraction?: number,
+  offset?: number,
   precision?: number,
   algorithm?: 'sha256',
 }
@@ -80,7 +81,8 @@ class PageManipulationModule extends REXServiceWorkerModule {
             action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element, "report" to mark element as observed, "add_class" to add a CSS class (optionally gated on a hash filter).',
             class_name: 'String (add_class only). CSS class to add. Defaults to "hash_match".',
             content: 'Object (add_class only). Content extractor: { source: "text" | "attr", name?: attribute name, transform?: "none" | "domain", within?: jQuery sub-selector to read from a descendant of the matched element rather than from the match itself }. If omitted, the class is added unconditionally to every match.',
-            fraction: 'Number (add_class only). 0.0–1.0 share of hash space; element is classed iff its hashed content falls in the first `fraction` of the space. Defaults to 0.1.',
+            fraction: 'Number (add_class only). 0.0–1.0 width of the hash window; element is classed iff its hashed content maps into [offset, offset + fraction). Defaults to 0.1.',
+            offset: 'Number (add_class only). 0.0–1.0 start of the hash window; lets you select a different slice of equal width (e.g. offset 0.1 + fraction 0.1 = the second 10%). Defaults to 0.',
             precision: 'Number (add_class only). Trailing hex chars of the hash used as a uniform integer. Defaults to 8 (32 bits).',
             algorithm: 'String (add_class only). Hash algorithm. Defaults to "sha256".'
           }]

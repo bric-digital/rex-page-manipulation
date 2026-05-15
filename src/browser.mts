@@ -42,10 +42,12 @@ function extractContent($el:JQuery<HTMLElement>, extractor:REXContentExtractor):
   return raw
 }
 
-function hashMatchesFraction(hashHex:string, fraction:number, precision:number):boolean {
+// Maps a hex hash to a uniform position in [0, 1) using its last `precision`
+// hex chars. Precision is clamped to keep the integer within MAX_SAFE_INTEGER.
+function hashPosition(hashHex:string, precision:number):number {
   const clampedPrecision = Math.max(1, Math.min(13, precision))
   const tail = parseInt(hashHex.slice(-clampedPrecision), 16)
-  return tail / 16 ** clampedPrecision < fraction
+  return tail / 16 ** clampedPrecision
 }
 
 class PageManipulationModule extends REXClientModule {
@@ -343,14 +345,27 @@ class PageManipulationModule extends REXClientModule {
                       console.log($(element))
                     }
                   } else if (action.action == 'add_class') {
-                    if ($(element).attr('data-rex-class-processed') !== undefined) {
+                    const className = action.class_name ?? 'hash_match'
+                    const debug = this.debug
+
+                    // Marker is per-class-name, not per-element: distinct
+                    // add_class rules adding different classes to the same
+                    // element must each get a chance to run. Re-processing the
+                    // same (element, class) pair is skipped — it would be
+                    // idempotent and waste an async hash.
+                    const processedAttr = $(element).attr('data-rex-class-processed')
+                    const processedClasses = (processedAttr !== undefined && processedAttr !== '')
+                      ? processedAttr.split(' ')
+                      : []
+
+                    if (processedClasses.includes(className)) {
                       return
                     }
-                    $(element).attr('data-rex-class-processed', `${Date.now()}`)
 
-                    const className = action.class_name ?? 'hash_match'
+                    processedClasses.push(className)
+                    $(element).attr('data-rex-class-processed', processedClasses.join(' '))
+
                     const key = `${action.selector}:add_class`
-                    const debug = this.debug
 
                     if (action.content === undefined) {
                       $(element).addClass(className)
@@ -361,9 +376,7 @@ class PageManipulationModule extends REXClientModule {
                       blockedCount[key] += 1
 
                       if (debug) {
-                        console.log('[PageManipulation] add_class (unconditional):')
-                        console.log(action)
-                        console.log($(element))
+                        console.log(`[PageManipulation] add_class | unconditional → +${className}`)
                       }
 
                       return
@@ -371,26 +384,31 @@ class PageManipulationModule extends REXClientModule {
 
                     const content = extractContent($(element), action.content)
                     if (content === null) {
+                      if (debug) {
+                        console.log(`[PageManipulation] add_class | ${action.selector}: no content extracted, skipping element`)
+                      }
                       return
                     }
 
                     const fraction = action.fraction ?? 0.1
+                    const offset = action.offset ?? 0
                     const precision = action.precision ?? 8
 
                     sha256(content).then((hash) => {
-                      if (hashMatchesFraction(hash, fraction, precision)) {
+                      const position = hashPosition(hash, precision)
+                      const matched = position >= offset && position < offset + fraction
+
+                      if (debug) {
+                        console.log(`[PageManipulation] add_class | content="${content}" pos=${position.toFixed(4)} window=[${offset.toFixed(4)}, ${(offset + fraction).toFixed(4)}) → ${matched ? `MATCH (+${className})` : 'skip'}`)
+                      }
+
+                      if (matched) {
                         $(element).addClass(className)
 
                         if (blockedCount[key] === undefined) {
                           blockedCount[key] = 0
                         }
                         blockedCount[key] += 1
-
-                        if (debug) {
-                          console.log(`[PageManipulation] add_class (hash match, ${content} → ${hash.slice(-precision)}):`)
-                          console.log(action)
-                          console.log($(element))
-                        }
                       }
                     })
                   }

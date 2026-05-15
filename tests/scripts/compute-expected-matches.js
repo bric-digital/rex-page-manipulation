@@ -54,15 +54,20 @@ const LINKS = [
   'https://berkeley.edu',
 ]
 
-const FRACTION = 0.2
 const PRECISION = 8
 
-const matches = []
-LINKS.forEach((href, i) => {
-  const hostname = new URL(href).hostname.replace(/^www\./, '')
-  const hash = createHash('sha256').update(hostname).digest('hex')
-  const tail = parseInt(hash.slice(-PRECISION), 16)
-  if (tail / 16 ** PRECISION < FRACTION) matches.push(i)
-})
+// An element is classed iff its hash position in [0,1) falls in the
+// half-open window [offset, offset + fraction).
+function matchesFor(offset, fraction, precision) {
+  const matches = []
+  LINKS.forEach((href, i) => {
+    const hostname = new URL(href).hostname.replace(/^www\./, '')
+    const hash = createHash('sha256').update(hostname).digest('hex')
+    const position = parseInt(hash.slice(-precision), 16) / 16 ** precision
+    if (position >= offset && position < offset + fraction) matches.push(i)
+  })
+  return matches
+}
 
-console.log(JSON.stringify(matches))
+console.log('offset=0.0 fraction=0.2:', JSON.stringify(matchesFor(0.0, 0.2, PRECISION)))
+console.log('offset=0.2 fraction=0.2:', JSON.stringify(matchesFor(0.2, 0.2, PRECISION)))
