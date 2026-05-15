@@ -31,7 +31,9 @@ test.describe('REX Page Manipulation', () => {
   });
 
   test('add_class with content.within reads the hash input from a descendant and applies the class to the matched container', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
-    const EXPECTED_MATCHES = [5, 10, 11, 14, 18, 19, 22, 23, 37, 48];
+    // Index 45 is www.tesco.co.uk → registrable domain tesco.co.uk (psl);
+    // a naive last-two-labels transform would yield co.uk and miss it.
+    const EXPECTED_MATCHES = [5, 10, 11, 14, 18, 19, 22, 23, 37, 45, 48];
 
     const collect = async () => page.evaluate(() => {
       const matched = [];
@@ -64,19 +66,19 @@ test.describe('REX Page Manipulation', () => {
 
     // hash_test_marker rule: a[id^='link-'] (50 elements), fraction 0.2.
     expect(merged["a[id^='link-']::hash_test_marker::evaluated"]).toBe(50);
-    expect(merged["a[id^='link-']::hash_test_marker::matched"]).toBe(10);
+    expect(merged["a[id^='link-']::hash_test_marker::matched"]).toBe(11);
 
     // hash_exception_marker rule: youtube.com is excluded *before* the hash,
-    // so it counts as neither evaluated nor matched — 49 evaluated, 9 matched.
+    // so it counts as neither evaluated nor matched — 49 evaluated, 10 matched.
     expect(merged["a[id^='link-']::hash_exception_marker::evaluated"]).toBe(49);
-    expect(merged["a[id^='link-']::hash_exception_marker::matched"]).toBe(9);
+    expect(merged["a[id^='link-']::hash_exception_marker::matched"]).toBe(10);
   });
 
   test('add_class with exceptions never classes listed content even when it is in the window', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
-    // offset=0, fraction=0.2 window is [5,10,11,14,18,19,22,23,37,48].
+    // offset=0, fraction=0.2 window is [5,10,11,14,18,19,22,23,37,45,48].
     // Index 5 is youtube.com (see tests/src/links.html). With
     // exceptions: ["youtube.com"], index 5 must be excluded.
-    const EXPECTED_WITH_EXCEPTION = [10, 11, 14, 18, 19, 22, 23, 37, 48];
+    const EXPECTED_WITH_EXCEPTION = [10, 11, 14, 18, 19, 22, 23, 37, 45, 48];
 
     const collect = async () => page.evaluate(() => {
       const matched = [];
@@ -114,8 +116,8 @@ test.describe('REX Page Manipulation', () => {
 
   test('add_class with fraction hashes domains deterministically and selects exactly the precomputed indices', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
     // Precomputed by tests/scripts/compute-expected-matches.js for sha256 over
-    // each fixture link's hostname, last-8-hex-chars / 2^32 < 0.2:
-    const EXPECTED_MATCHES = [5, 10, 11, 14, 18, 19, 22, 23, 37, 48];
+    // each fixture link's registrable domain, last-8-hex-chars / 2^32 < 0.2:
+    const EXPECTED_MATCHES = [5, 10, 11, 14, 18, 19, 22, 23, 37, 45, 48];
 
     const collect = async () => {
       const out = await page.evaluate(() => {

@@ -1,4 +1,5 @@
 import $ from 'jquery'
+import psl from 'psl'
 
 import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
@@ -33,7 +34,16 @@ function extractContent($el:JQuery<HTMLElement>, extractor:REXContentExtractor):
 
   if (extractor.transform === 'domain') {
     try {
-      return new URL(raw).hostname.replace(/^www\./, '')
+      const hostname = new URL(raw).hostname
+      const parsed = psl.parse(hostname)
+
+      if (parsed.error !== undefined) {
+        return null
+      }
+
+      // Registrable domain (eTLD+1) via the Public Suffix List, e.g.
+      // "news.bbc.co.uk" -> "bbc.co.uk", "www.chase.com" -> "chase.com".
+      return (parsed as psl.ParsedDomain).domain ?? null
     } catch {
       return null
     }
