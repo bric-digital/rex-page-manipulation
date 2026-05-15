@@ -7,7 +7,7 @@ declare module 'psl' {
    * - `psl.parse()` returns either a parsed domain object (no `error`) or an error object (has `error`).
    * - Type is accessible as BOTH `import("psl").ParsedDomain` and `psl.ParsedDomain`.
    */
-  declare namespace psl {
+  namespace psl {
     export interface ParsedDomain {
       input: string;
       tld?: string | null;
@@ -31,7 +31,7 @@ declare module 'psl' {
   export type ParsedError = psl.ParsedError;
   export type ParsedResult = psl.ParsedResult;
 
-  declare const psl: {
+  const psl: {
     parse(hostname: string): psl.ParsedResult;
   };
 
