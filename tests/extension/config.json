@@ -21,6 +21,42 @@
             "selector": "#js-link-box-en",
             "action": "hide"
           }]
+        }, {
+          "base_url": "http://localhost:8080/links.html",
+          "actions": [{
+            "selector": "#link-0",
+            "action": "add_class"
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "hash_test_marker",
+            "content": { "source": "attr", "name": "href", "transform": "domain" },
+            "fraction": 0.2,
+            "precision": 8
+          }, {
+            "action": "add_class",
+            "selector": "li[id^='li-']",
+            "class_name": "hash_test_within_marker",
+            "content": { "source": "attr", "name": "href", "transform": "domain", "within": "a" },
+            "fraction": 0.2,
+            "precision": 8
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "hash_offset_marker",
+            "content": { "source": "attr", "name": "href", "transform": "domain" },
+            "offset": 0.2,
+            "fraction": 0.2,
+            "precision": 8
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "hash_exception_marker",
+            "content": { "source": "attr", "name": "href", "transform": "domain" },
+            "fraction": 0.2,
+            "precision": 8,
+            "exceptions": ["youtube.com"]
+          }]
         }]
     },
     "ui": [{

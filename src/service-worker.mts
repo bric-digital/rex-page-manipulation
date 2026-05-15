@@ -6,9 +6,23 @@ export interface REXPageRedirect {
   destination: string
 }
 
+export interface REXContentExtractor {
+  source: 'text' | 'attr',
+  name?: string,
+  transform?: 'none' | 'domain',
+  within?: string,
+}
+
 export interface REXPageElementRuleAction {
   selector: string,
   action: string,
+  // Used when action === 'add_class':
+  class_name?: string,
+  content?: REXContentExtractor,
+  fraction?: number,
+  offset?: number,
+  precision?: number,
+  exceptions?: string[],
 }
 
 export interface REXPageElementRule {
@@ -64,7 +78,13 @@ class PageManipulationModule extends REXServiceWorkerModule {
           base_url: 'URL to apply the associated actions to.',
           actions: [{
             selector: 'jQuery selector indicating which elements to act upon.',
-            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element.'
+            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element, "report" to mark element as observed, "add_class" to add a CSS class (optionally gated on a hash filter).',
+            class_name: 'String (add_class only). CSS class to add. Defaults to "hash_match".',
+            content: 'Object (add_class only). Content extractor: { source: "text" | "attr", name?: attribute name, transform?: "none" | "domain" — "domain" parses the value as a URL and reduces it to the registrable domain (eTLD+1) via the Public Suffix List, e.g. "news.bbc.co.uk" -> "bbc.co.uk", within?: jQuery sub-selector to read from a descendant of the matched element rather than from the match itself }. If omitted, the class is added unconditionally to every match.',
+            fraction: 'Number (add_class only). 0.0–1.0 width of the hash window; element is classed iff its hashed content maps into [offset, offset + fraction). Defaults to 0.1.',
+            offset: 'Number (add_class only). 0.0–1.0 start of the hash window; lets you select a different slice of equal width (e.g. offset 0.1 + fraction 0.1 = the second 10%). Defaults to 0.',
+            precision: 'Number (add_class only). Trailing hex chars of the hash used as a uniform integer. Defaults to 8 (32 bits).',
+            exceptions: 'Array of strings (add_class only). Extracted content values that are never classed, even when their hash falls inside the window. Compared by exact match against the post-transform content (e.g. with transform "domain", list "chase.com"). Defaults to empty.'
           }]
         }]
       }

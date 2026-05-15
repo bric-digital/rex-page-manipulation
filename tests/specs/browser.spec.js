@@ -25,6 +25,168 @@ test.describe('REX Page Manipulation', () => {
     await expect(englishLink).toBeHidden()
   });
 
+  test('add_class applies the default hash_match class when no content extractor is configured', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    await page.goto('/links.html');
+    await expect(page.locator('#link-0')).toHaveClass(/(^|\s)hash_match(\s|$)/);
+  });
+
+  test('add_class with content.within reads the hash input from a descendant and applies the class to the matched container', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    // Index 45 is www.tesco.co.uk → registrable domain tesco.co.uk (psl);
+    // a naive last-two-labels transform would yield co.uk and miss it.
+    const EXPECTED_MATCHES = [5, 10, 11, 14, 18, 19, 22, 23, 37, 45, 48];
+
+    const collect = async () => page.evaluate(() => {
+      const matched = [];
+      document.querySelectorAll("li[id^='li-']").forEach((li) => {
+        if (li.classList.contains('hash_test_within_marker')) {
+          matched.push(parseInt(li.id.slice('li-'.length), 10));
+        }
+      });
+      return matched.sort((a, b) => a - b);
+    });
+
+    await page.goto('/links.html');
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_MATCHES);
+  });
+
+  test('add_class reports evaluated and matched counts via logEvent', async ({ page, serviceWorker }) => {
+    await page.goto('/links.html');
+    await page.waitForTimeout(2000); // allow the debounced telemetry flush to fire
+
+    const events = await serviceWorker.evaluate(() => self['capturedLogEvents'] || []);
+
+    // Merge every page-manipulation event's updates (counts are deltas).
+    const merged = {};
+    for (const e of events) {
+      if (e.name !== 'page-manipulation') continue;
+      for (const [k, v] of Object.entries(e.updates || {})) {
+        merged[k] = (merged[k] || 0) + v;
+      }
+    }
+
+    // hash_test_marker rule: a[id^='link-'] (50 elements), fraction 0.2.
+    expect(merged["a[id^='link-']::hash_test_marker::evaluated"]).toBe(50);
+    expect(merged["a[id^='link-']::hash_test_marker::matched"]).toBe(11);
+
+    // hash_exception_marker rule: youtube.com is excluded *before* the hash,
+    // so it counts as neither evaluated nor matched — 49 evaluated, 10 matched.
+    expect(merged["a[id^='link-']::hash_exception_marker::evaluated"]).toBe(49);
+    expect(merged["a[id^='link-']::hash_exception_marker::matched"]).toBe(10);
+  });
+
+  test('add_class logs the exact matched and unmatched domain lists via logEvent', async ({ page, serviceWorker }) => {
+    await page.goto('/links.html');
+    await page.waitForTimeout(2000); // allow the debounced telemetry flush to fire
+
+    const events = await serviceWorker.evaluate(() => self['capturedLogEvents'] || []);
+
+    // Merge every page-manipulation event's domain lists (deltas — concatenate).
+    const matched = [];
+    const unmatched = [];
+    for (const e of events) {
+      if (e.name !== 'page-manipulation' || !e.domains) continue;
+      for (const d of e.domains["a[id^='link-']::hash_test_marker::matched"] || []) matched.push(d);
+      for (const d of e.domains["a[id^='link-']::hash_test_marker::unmatched"] || []) unmatched.push(d);
+    }
+
+    // hash_test_marker rule: 50 links, fraction 0.2 → 11 matched, 39 unmatched.
+    expect(matched.length).toBe(11);
+    expect(unmatched.length).toBe(39);
+    expect(matched.length + unmatched.length).toBe(50);
+
+    // Logged values are registrable domains. tesco.co.uk (index 45, from
+    // www.tesco.co.uk) being in `matched` proves the eTLD+1 is logged — not
+    // the full host, and not the naive last-two-labels "co.uk".
+    expect(matched).toContain('tesco.co.uk');
+    expect(matched).toContain('youtube.com');   // index 5, in-window
+    expect(unmatched).toContain('google.com');  // index 0, out-of-window
+    expect(unmatched).not.toContain('tesco.co.uk');
+  });
+
+  test('add_class logs exception-skipped domains in a separate excepted list', async ({ page, serviceWorker }) => {
+    await page.goto('/links.html');
+    await page.waitForTimeout(2000); // allow the debounced telemetry flush to fire
+
+    const events = await serviceWorker.evaluate(() => self['capturedLogEvents'] || []);
+
+    const excepted = [];
+    for (const e of events) {
+      if (e.name !== 'page-manipulation' || !e.domains) continue;
+      for (const d of e.domains["a[id^='link-']::hash_exception_marker::excepted"] || []) excepted.push(d);
+    }
+
+    // The hash_exception_marker rule has exceptions: ["youtube.com"]; the
+    // fixture has youtube.com exactly once (index 5). It is skipped before
+    // the hash, so it lands in `excepted` — not matched, not unmatched.
+    expect(excepted).toEqual(['youtube.com']);
+  });
+
+  test('add_class with exceptions never classes listed content even when it is in the window', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    // offset=0, fraction=0.2 window is [5,10,11,14,18,19,22,23,37,45,48].
+    // Index 5 is youtube.com (see tests/src/links.html). With
+    // exceptions: ["youtube.com"], index 5 must be excluded.
+    const EXPECTED_WITH_EXCEPTION = [10, 11, 14, 18, 19, 22, 23, 37, 45, 48];
+
+    const collect = async () => page.evaluate(() => {
+      const matched = [];
+      document.querySelectorAll("a[id^='link-']").forEach((a) => {
+        if (a.classList.contains('hash_exception_marker')) {
+          matched.push(parseInt(a.id.slice('link-'.length), 10));
+        }
+      });
+      return matched.sort((a, b) => a - b);
+    });
+
+    await page.goto('/links.html');
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_WITH_EXCEPTION);
+  });
+
+  test('add_class with offset selects the hash window [offset, offset+fraction)', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    // Precomputed by tests/scripts/compute-expected-matches.js for offset=0.2,
+    // fraction=0.2 — i.e. hash position in [0.2, 0.4). Disjoint from the
+    // offset=0 set, confirming the window shifted rather than widened.
+    const EXPECTED_OFFSET_MATCHES = [0, 1, 20, 24, 25, 29, 42];
+
+    const collect = async () => page.evaluate(() => {
+      const matched = [];
+      document.querySelectorAll("a[id^='link-']").forEach((a) => {
+        if (a.classList.contains('hash_offset_marker')) {
+          matched.push(parseInt(a.id.slice('link-'.length), 10));
+        }
+      });
+      return matched.sort((a, b) => a - b);
+    });
+
+    await page.goto('/links.html');
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_OFFSET_MATCHES);
+  });
+
+  test('add_class with fraction hashes domains deterministically and selects exactly the precomputed indices', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
+    // Precomputed by tests/scripts/compute-expected-matches.js for sha256 over
+    // each fixture link's registrable domain, last-8-hex-chars / 2^32 < 0.2:
+    const EXPECTED_MATCHES = [5, 10, 11, 14, 18, 19, 22, 23, 37, 45, 48];
+
+    const collect = async () => {
+      const out = await page.evaluate(() => {
+        const matched = [];
+        document.querySelectorAll("a[id^='link-']").forEach((a) => {
+          if (a.classList.contains('hash_test_marker')) {
+            matched.push(parseInt(a.id.slice('link-'.length), 10));
+          }
+        });
+        return matched.sort((a, b) => a - b);
+      });
+      return out;
+    };
+
+    await page.goto('/links.html');
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_MATCHES);
+
+    // Determinism on reload.
+    await page.reload();
+    await expect.poll(collect, { timeout: 5000 }).toEqual(EXPECTED_MATCHES);
+  });
+
   test('Test that initial page obfuscation works.', async ({ page }) => {
     const body = await page.locator('css=body')
 
