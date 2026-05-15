@@ -65,10 +65,12 @@ class PageManipulationModule extends REXClientModule {
   refreshTimeout:number = 0
   debug:boolean = false
 
-  // Telemetry accumulator. Counts survive across applyConfiguration passes and
-  // the async hash boundary (unlike a per-pass local), then flush as a single
-  // debounced logEvent. Counts are deltas — reset to {} after each flush.
+  // Telemetry accumulators. Survive across applyConfiguration passes and the
+  // async hash boundary (unlike a per-pass local), then flush as a single
+  // debounced logEvent. Both are deltas — reset to {} after each flush.
+  // eventCounts: { key -> count }. eventDomains: { key -> [content, ...] }.
   eventCounts:{[key: string]: number} = {}
+  eventDomains:{[key: string]: string[]} = {}
   flushTimeout:number = 0
 
   constructor() {
@@ -79,12 +81,7 @@ class PageManipulationModule extends REXClientModule {
     return 'PageManipulationModule'
   }
 
-  recordEvent(key:string) {
-    if (this.eventCounts[key] === undefined) {
-      this.eventCounts[key] = 0
-    }
-    this.eventCounts[key] += 1
-
+  scheduleFlush() {
     if (this.flushTimeout === 0) {
       this.flushTimeout = window.setTimeout(() => {
         this.flushTimeout = 0
@@ -93,17 +90,38 @@ class PageManipulationModule extends REXClientModule {
     }
   }
 
+  recordEvent(key:string) {
+    if (this.eventCounts[key] === undefined) {
+      this.eventCounts[key] = 0
+    }
+    this.eventCounts[key] += 1
+
+    this.scheduleFlush()
+  }
+
+  recordDomain(key:string, domain:string) {
+    if (this.eventDomains[key] === undefined) {
+      this.eventDomains[key] = []
+    }
+    this.eventDomains[key].push(domain)
+
+    this.scheduleFlush()
+  }
+
   flushEvents() {
-    if ($.isEmptyObject(this.eventCounts)) {
+    if ($.isEmptyObject(this.eventCounts) && $.isEmptyObject(this.eventDomains)) {
       return
     }
 
     const updates = this.eventCounts
+    const domains = this.eventDomains
     this.eventCounts = {}
+    this.eventDomains = {}
 
     if (this.debug) {
       console.log('[PageManipulation] Flushing telemetry:')
       console.log(updates)
+      console.log(domains)
     }
 
     chrome.runtime.sendMessage({
@@ -111,7 +129,8 @@ class PageManipulationModule extends REXClientModule {
       'event': {
         'name': 'page-manipulation',
         'url': window.location.href,
-        'updates': updates
+        'updates': updates,
+        'domains': domains
       }
     })
   }
@@ -421,6 +440,8 @@ class PageManipulationModule extends REXClientModule {
                     }
 
                     if (action.exceptions !== undefined && action.exceptions.includes(content)) {
+                      this.recordDomain(`${eventKey}::excepted`, content)
+
                       if (debug) {
                         console.log(`[PageManipulation] add_class | content="${content}" → skip (in exceptions list)`)
                       }
@@ -445,6 +466,9 @@ class PageManipulationModule extends REXClientModule {
                         $(element).addClass(className)
 
                         this.recordEvent(`${eventKey}::matched`)
+                        this.recordDomain(`${eventKey}::matched`, content)
+                      } else {
+                        this.recordDomain(`${eventKey}::unmatched`, content)
                       }
                     })
                   }

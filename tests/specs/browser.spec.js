@@ -74,6 +74,53 @@ test.describe('REX Page Manipulation', () => {
     expect(merged["a[id^='link-']::hash_exception_marker::matched"]).toBe(10);
   });
 
+  test('add_class logs the exact matched and unmatched domain lists via logEvent', async ({ page, serviceWorker }) => {
+    await page.goto('/links.html');
+    await page.waitForTimeout(2000); // allow the debounced telemetry flush to fire
+
+    const events = await serviceWorker.evaluate(() => self['capturedLogEvents'] || []);
+
+    // Merge every page-manipulation event's domain lists (deltas — concatenate).
+    const matched = [];
+    const unmatched = [];
+    for (const e of events) {
+      if (e.name !== 'page-manipulation' || !e.domains) continue;
+      for (const d of e.domains["a[id^='link-']::hash_test_marker::matched"] || []) matched.push(d);
+      for (const d of e.domains["a[id^='link-']::hash_test_marker::unmatched"] || []) unmatched.push(d);
+    }
+
+    // hash_test_marker rule: 50 links, fraction 0.2 → 11 matched, 39 unmatched.
+    expect(matched.length).toBe(11);
+    expect(unmatched.length).toBe(39);
+    expect(matched.length + unmatched.length).toBe(50);
+
+    // Logged values are registrable domains. tesco.co.uk (index 45, from
+    // www.tesco.co.uk) being in `matched` proves the eTLD+1 is logged — not
+    // the full host, and not the naive last-two-labels "co.uk".
+    expect(matched).toContain('tesco.co.uk');
+    expect(matched).toContain('youtube.com');   // index 5, in-window
+    expect(unmatched).toContain('google.com');  // index 0, out-of-window
+    expect(unmatched).not.toContain('tesco.co.uk');
+  });
+
+  test('add_class logs exception-skipped domains in a separate excepted list', async ({ page, serviceWorker }) => {
+    await page.goto('/links.html');
+    await page.waitForTimeout(2000); // allow the debounced telemetry flush to fire
+
+    const events = await serviceWorker.evaluate(() => self['capturedLogEvents'] || []);
+
+    const excepted = [];
+    for (const e of events) {
+      if (e.name !== 'page-manipulation' || !e.domains) continue;
+      for (const d of e.domains["a[id^='link-']::hash_exception_marker::excepted"] || []) excepted.push(d);
+    }
+
+    // The hash_exception_marker rule has exceptions: ["youtube.com"]; the
+    // fixture has youtube.com exactly once (index 5). It is skipped before
+    // the hash, so it lands in `excepted` — not matched, not unmatched.
+    expect(excepted).toEqual(['youtube.com']);
+  });
+
   test('add_class with exceptions never classes listed content even when it is in the window', async ({ page, serviceWorker }) => { // eslint-disable-line no-unused-vars
     // offset=0, fraction=0.2 window is [5,10,11,14,18,19,22,23,37,45,48].
     // Index 5 is youtube.com (see tests/src/links.html). With
