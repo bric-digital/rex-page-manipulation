@@ -29,33 +29,66 @@
           }, {
             "action": "add_class",
             "selector": "a[id^='link-']",
-            "class_name": "hash_test_marker",
-            "content": { "source": "attr", "name": "href", "transform": "domain" },
-            "fraction": 0.2,
-            "precision": 8
+            "class_name": "range_marker",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [0, 8],
+              "within_range": ["00000000", "40000000"]
+            }]
           }, {
             "action": "add_class",
             "selector": "li[id^='li-']",
-            "class_name": "hash_test_within_marker",
-            "content": { "source": "attr", "name": "href", "transform": "domain", "within": "a" },
-            "fraction": 0.2,
-            "precision": 8
+            "class_name": "within_marker",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain", "within": "a" },
+              "use": [0, 8],
+              "within_range": ["00000000", "40000000"]
+            }]
           }, {
             "action": "add_class",
             "selector": "a[id^='link-']",
-            "class_name": "hash_offset_marker",
-            "content": { "source": "attr", "name": "href", "transform": "domain" },
-            "offset": 0.2,
-            "fraction": 0.2,
-            "precision": 8
+            "class_name": "exception_marker",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [0, 8],
+              "within_range": ["00000000", "40000000"]
+            }],
+            "exceptions": ["wikipedia.org"]
           }, {
             "action": "add_class",
             "selector": "a[id^='link-']",
-            "class_name": "hash_exception_marker",
-            "content": { "source": "attr", "name": "href", "transform": "domain" },
-            "fraction": 0.2,
-            "precision": 8,
-            "exceptions": ["youtube.com"]
+            "class_name": "all_marker",
+            "conditions_match": "all",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [0, 8],
+              "within_range": ["00000000", "80000000"]
+            }, {
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [8, 16],
+              "within_range": ["00000000", "80000000"]
+            }]
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "any_marker",
+            "conditions_match": "any",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [0, 8],
+              "within_range": ["00000000", "80000000"]
+            }, {
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [8, 16],
+              "within_range": ["00000000", "80000000"]
+            }]
           }]
         }]
     },

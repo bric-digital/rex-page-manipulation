@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import nacl from 'tweetnacl'
 import psl from 'psl'
 
 // MUST match the hrefs in tests/src/links.html, in the same order.
@@ -55,31 +55,44 @@ const LINKS = [
   'https://berkeley.edu',
 ]
 
-const PRECISION = 8
+// Reference reimplementation of the browser-side condition logic, so the
+// hardcoded expectations in browser.spec.js stay verifiable. tweetnacl and psl
+// are isomorphic — this produces the same values as the extension's bundle.
 
-// Reference reimplementation of extractContent's transform: "domain" —
-// the registrable domain (eTLD+1) via the Public Suffix List.
+// extractContent's transform: "domain" — registrable domain (eTLD+1) via PSL.
 function registrableDomain(href) {
-  const hostname = new URL(href).hostname
-  const parsed = psl.parse(hostname)
-  if (parsed.error !== undefined) return null
-  return parsed.domain
+  const parsed = psl.parse(new URL(href).hostname)
+  return parsed.error !== undefined ? null : parsed.domain
 }
 
-// An element is classed iff its hash position in [0,1) falls in the
-// half-open window [offset, offset + fraction).
-function matchesFor(offset, fraction, precision) {
-  const matches = []
-  LINKS.forEach((href, i) => {
-    const domain = registrableDomain(href)
-    if (domain === null) return
-    const hash = createHash('sha256').update(domain).digest('hex')
-    const position = parseInt(hash.slice(-precision), 16) / 16 ** precision
-    if (position >= offset && position < offset + fraction) matches.push(i)
-  })
-  return matches
+// The calculate-sha512-hash operation: SHA-512 of `content` as lowercase hex.
+function sha512Hex(content) {
+  const bytes = nacl.hash(new TextEncoder().encode(content))
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+// A single condition passes iff hash.slice(use[0], use[1]) is in [lo, hi).
+function conditionPasses(href, use, [lo, hi]) {
+  const domain = registrableDomain(href)
+  if (domain === null) return false
+  const slice = sha512Hex(domain).slice(use[0], use[1])
+  return lo <= slice && slice < hi
+}
+
+const indicesWhere = (predicate) =>
+  LINKS.map((href, i) => (predicate(href) ? i : -1)).filter((i) => i >= 0)
+
+// R2/R3 (single condition) and R4 (same, minus the youtube.com exception).
+const range = indicesWhere((h) => conditionPasses(h, [0, 8], ['00000000', '40000000']))
+// R5/R6 — two independent conditions on disjoint hash slices.
+const condA = (h) => conditionPasses(h, [0, 8], ['00000000', '80000000'])
+const condB = (h) => conditionPasses(h, [8, 16], ['00000000', '80000000'])
 
 console.log('registrable domains:', JSON.stringify(LINKS.map(registrableDomain)))
-console.log('offset=0.0 fraction=0.2:', JSON.stringify(matchesFor(0.0, 0.2, PRECISION)))
-console.log('offset=0.2 fraction=0.2:', JSON.stringify(matchesFor(0.2, 0.2, PRECISION)))
+console.log('single range [00000000,40000000):', JSON.stringify(range))
+console.log('exception (range minus wikipedia.org):',
+  JSON.stringify(range.filter((i) => registrableDomain(LINKS[i]) !== 'wikipedia.org')))
+console.log('conditions_match all (condA AND condB):',
+  JSON.stringify(indicesWhere((h) => condA(h) && condB(h))))
+console.log('conditions_match any (condA OR condB):',
+  JSON.stringify(indicesWhere((h) => condA(h) || condB(h))))
