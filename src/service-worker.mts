@@ -6,9 +6,29 @@ export interface REXPageRedirect {
   destination: string
 }
 
+export interface REXContentExtractor {
+  source: 'text' | 'attr',
+  name?: string,
+  transform?: 'none' | 'domain',
+  within?: string,
+}
+
+export interface REXCondition {
+  operation: string,
+  content?: REXContentExtractor,
+  // Parameters for the "calculate-sha512-hash" operation:
+  use?: [number, number],
+  within_range?: [string, string],
+}
+
 export interface REXPageElementRuleAction {
   selector: string,
   action: string,
+  // Used when action === 'add_class':
+  class_name?: string,
+  conditions?: REXCondition[],
+  conditions_match?: 'all' | 'any',
+  exceptions?: string[],
 }
 
 export interface REXPageElementRule {
@@ -64,7 +84,11 @@ class PageManipulationModule extends REXServiceWorkerModule {
           base_url: 'URL to apply the associated actions to.',
           actions: [{
             selector: 'jQuery selector indicating which elements to act upon.',
-            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element.'
+            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element, "report" to mark element as observed, "add_class" to add a CSS class (optionally gated on conditions).',
+            class_name: 'String (add_class only). CSS class to add. Defaults to "hash_match".',
+            conditions: 'Array (add_class only). Each condition: { operation, content, ... }. content is { source: "text" | "attr", name?: attribute name, transform?: "none" | "domain" (reduces a URL to its registrable domain / eTLD+1 via the Public Suffix List), within?: jQuery sub-selector to read from a descendant }. operation "calculate-sha512-hash" also takes use: [start, end] (slice indices into the 128-char hex digest) and within_range: [lo, hi] (the slice passes iff lo <= slice < hi, lowercase-hex string comparison). If conditions is omitted/empty the class is added unconditionally.',
+            conditions_match: 'String (add_class only). "all" (every condition must pass) or "any" (at least one). Defaults to "all".',
+            exceptions: 'Array of strings (add_class only). Extracted content values that are never classed regardless of conditions (e.g. with transform "domain", list "chase.com"). Defaults to empty.'
           }]
         }]
       }

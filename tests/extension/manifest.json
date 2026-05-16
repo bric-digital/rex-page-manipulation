@@ -24,5 +24,12 @@
   ],
   "background": {
     "service_worker": "js/serviceWorker/bundle.js"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:8080/*"],
+      "js": ["js/browser/bundle.js"],
+      "run_at": "document_start"
+    }
+  ]
 }

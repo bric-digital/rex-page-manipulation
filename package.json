@@ -34,6 +34,8 @@
         "test:unit": "playwright test specs/"
     },
     "dependencies": {
-        "@bric/rex-core": "github:bric-digital/rex-core"
+        "@bric/rex-core": "github:bric-digital/rex-core",
+        "psl": "^1.15.0",
+        "tweetnacl": "^1.0.3"
     }
 }

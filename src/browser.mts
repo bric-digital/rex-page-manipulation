@@ -1,9 +1,99 @@
 import $ from 'jquery'
+import psl from 'psl'
+import nacl from 'tweetnacl'
 
 import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
 
-import { REXPageManipulationConfiguration, REXPageManipulationObscurePage } from '@bric/rex-page-manipulation/service-worker'
+import { REXCondition, REXContentExtractor, REXPageElementRuleAction, REXPageManipulationConfiguration, REXPageManipulationObscurePage } from '@bric/rex-page-manipulation/service-worker'
+
+// SHA-512 of `text` as a 128-char lowercase hex string. tweetnacl is a vetted
+// crypto library REX already depends on (via rex-passive-data-kit) and works
+// in any context — unlike crypto.subtle, which is undefined on insecure
+// (plain-http) pages.
+function sha512Hex(text:string):string {
+  return Array.from(nacl.hash(new TextEncoder().encode(text)),
+    (byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function extractContent($el:JQuery<HTMLElement>, extractor:REXContentExtractor):string | null {
+  const $source = extractor.within ? $el.find(extractor.within).first() : $el
+
+  if ($source.length === 0) {
+    return null
+  }
+
+  let raw:string | undefined
+
+  if (extractor.source === 'text') {
+    raw = $source.text()
+  } else if (extractor.source === 'attr' && extractor.name !== undefined) {
+    raw = $source.attr(extractor.name)
+  }
+
+  if (raw === undefined || raw === null) {
+    return null
+  }
+
+  if (extractor.transform === 'domain') {
+    try {
+      const parsed = psl.parse(new URL(raw).hostname)
+
+      if (parsed.error !== undefined) {
+        return null
+      }
+
+      // Registrable domain (eTLD+1) via the Public Suffix List, e.g.
+      // "news.bbc.co.uk" -> "bbc.co.uk", "www.chase.com" -> "chase.com".
+      return (parsed as psl.ParsedDomain).domain ?? null
+    } catch {
+      return null
+    }
+  }
+
+  return raw
+}
+
+// Condition operations: each maps extracted content + the condition to a
+// pass/fail. Bundled with the module; a registration hook for author-defined
+// operations can later add to this map.
+const CONDITION_OPERATIONS:{
+  [operation: string]: (content:string, condition:REXCondition) => boolean
+} = {
+  // Passes iff hash.slice(use[0], use[1]) is within [lo, hi). Plain string
+  // comparison of equal-length lowercase hex — no integer/float conversion.
+  'calculate-sha512-hash': (content, condition) => {
+    const use = condition.use
+    const range = condition.within_range
+
+    if (use === undefined || range === undefined) {
+      return false
+    }
+
+    const slice = sha512Hex(content).slice(use[0], use[1])
+
+    if (slice.length !== range[0].length || range[0].length !== range[1].length) {
+      return false
+    }
+
+    return range[0] <= slice && slice < range[1]
+  },
+}
+
+// Evaluates one condition. Returns whether it passed and the content it
+// extracted (null if a configured extractor yielded nothing) — the content is
+// reused for the exceptions veto and telemetry.
+function evaluateCondition($el:JQuery<HTMLElement>, condition:REXCondition):{ pass:boolean, content:string | null } {
+  const content = condition.content !== undefined ? extractContent($el, condition.content) : null
+
+  if (content === null) {
+    return { pass: false, content: null }
+  }
+
+  const operation = CONDITION_OPERATIONS[condition.operation]
+
+  return { pass: operation !== undefined && operation(content, condition), content }
+}
 
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
@@ -18,56 +108,72 @@ class PageManipulationModule extends REXClientModule {
     return 'PageManipulationModule'
   }
 
-  setup() {
+  loadConfiguration() {
     chrome.runtime.sendMessage({
-        'messageType': 'fetchConfiguration',
-      }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        const configuration = response as REXConfiguration
+      'messageType': 'fetchConfiguration',
+    }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      // Retry until the config is in chrome.storage.local — the extension UI
+      // writes it asynchronously and the page bundle can run before it lands.
+      if (response === null || response === undefined) {
+        window.setTimeout(() => this.loadConfiguration(), 250)
+        return
+      }
 
-        this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
+      const configuration = response as REXConfiguration
 
-        if (this.debug) {
-          console.log(`Got config...`)
-          console.log(this.configuration)
-        }
+      this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
+      if (this.configuration === undefined) {
+        window.setTimeout(() => this.loadConfiguration(), 250)
+        return
+      }
 
-        if (obscurePage !== undefined) {
-          for (const obscure of obscurePage) {
+      if (this.debug) {
+        console.log(`Got config...`)
+        console.log(this.configuration)
+      }
+
+      const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
+
+      if (obscurePage !== undefined) {
+        for (const obscure of obscurePage) {
+          if (this.debug) {
+            console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+          }
+
+          if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
+
             if (this.debug) {
-              console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+              console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
             }
-            
-            if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
 
-              if (this.debug) {
-                console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
-              }
+            const body = document.querySelector('html')
 
-              const body = document.querySelector('html')
+            if (body !== null) {
+              body.style.opacity = '0'
 
-              if (body !== null) {
-                body.style.opacity = '0'
-
-                if (obscure.delay !== undefined) {
-                  window.setTimeout(() => {
-                    body.style.opacity = '1'
-                  }, obscure.delay)
-                }
+              if (obscure.delay !== undefined) {
+                window.setTimeout(() => {
+                  body.style.opacity = '1'
+                }, obscure.delay)
               }
             }
           }
         }
+      }
 
-        if (this.refreshTimeout == 0) {
-          this.refreshTimeout = window.setTimeout(() => {
-            this.applyConfiguration()
+      if (this.refreshTimeout == 0) {
+        this.refreshTimeout = window.setTimeout(() => {
+          this.applyConfiguration()
 
-            this.refreshTimeout = 0
-          }, 250)
-        }
-      })
+          this.refreshTimeout = 0
+        }, 250)
+      }
+    })
+  }
+
+  setup() {
+    this.loadConfiguration()
 
     new MutationObserver(() => {
         if (this.refreshTimeout == 0) {
@@ -180,6 +286,75 @@ class PageManipulationModule extends REXClientModule {
     })
   }
 
+  // Applies one add_class action to one matched element, recording telemetry
+  // via the per-pass bump/pushDomain accumulators owned by applyConfiguration.
+  applyAddClass(
+    $element:JQuery<HTMLElement>,
+    action:REXPageElementRuleAction,
+    bump:(key:string) => void,
+    pushDomain:(key:string, value:string) => void,
+  ) {
+    const className = action.class_name ?? 'hash_match'
+    const eventKey = `${action.selector}::${className}`
+
+    // Dedup marker keyed by selector::className — NOT by class name alone, so
+    // two rules applying the same class via different selectors each run once.
+    // Skipping re-processed elements keeps telemetry counts honest across
+    // MutationObserver passes. Newline-separated since selectors may contain
+    // spaces.
+    const processed = ($element.attr('data-rex-class-processed') ?? '').split('\n').filter((key) => key !== '')
+
+    if (processed.includes(eventKey)) {
+      return
+    }
+
+    const markProcessed = () => $element.attr('data-rex-class-processed', [...processed, eventKey].join('\n'))
+
+    const conditions = action.conditions ?? []
+
+    if (conditions.length === 0) {
+      $element.addClass(className)
+      bump(`${eventKey}::applied`)
+      markProcessed()
+      return
+    }
+
+    const results = conditions.map((condition) => evaluateCondition($element, condition))
+
+    // A configured content extractor yielded nothing (e.g. a `within`
+    // descendant not yet in the DOM). Leave the element unmarked so a later
+    // MutationObserver pass retries it once its content is available.
+    if (results.some((result, index) => conditions[index].content !== undefined && result.content === null)) {
+      return
+    }
+
+    const contents = results.map((result) => result.content).filter((content):content is string => content !== null)
+
+    bump(`${eventKey}::evaluated`)
+    markProcessed()
+
+    // exceptions are an absolute veto, independent of conditions_match.
+    const excepted = action.exceptions !== undefined
+      ? contents.filter((content) => action.exceptions!.includes(content))
+      : []
+
+    if (excepted.length > 0) {
+      excepted.forEach((content) => pushDomain(`${eventKey}::excepted`, content))
+      return
+    }
+
+    const passed = action.conditions_match === 'any'
+      ? results.some((result) => result.pass)
+      : results.every((result) => result.pass)
+
+    contents.forEach((content) => pushDomain(`${eventKey}::${passed ? 'matched' : 'unmatched'}`, content))
+
+    if (passed) {
+      $element.addClass(className)
+      bump(`${eventKey}::matched`)
+    }
+  }
+
   applyConfiguration() {
     if (this.configuration !== undefined) {
       if (this.configuration['debug'] === true) {
@@ -194,7 +369,23 @@ class PageManipulationModule extends REXClientModule {
       }
 
       if (this.configuration['enabled']) {
-        const blockedCount:{[key: string]: number} = {}
+        // Per-pass telemetry, sent once as a single page-manipulation logEvent.
+        // Counts/lists are deltas — the marker attributes ensure each element
+        // is acted on, and counted, only once across MutationObserver passes.
+        const updates:{[key: string]: number} = {}
+        const domains:{[key: string]: string[]} = {}
+
+        const bump = (key:string) => {
+          updates[key] = (updates[key] ?? 0) + 1
+        }
+
+        const pushDomain = (key:string, value:string) => {
+          if (domains[key] === undefined) {
+            domains[key] = []
+          }
+
+          domains[key].push(value)
+        }
 
         if (this.configuration['page_elements'] !== undefined) {
           for (const elementRule of this.configuration['page_elements']) {
@@ -224,13 +415,7 @@ class PageManipulationModule extends REXClientModule {
 
                       $(element).css('display', 'none')
 
-                      const key = `${action.selector}:hide`
-
-                      if (blockedCount[key] === undefined) {
-                        blockedCount[key] = 0
-                      }
-
-                      blockedCount[key] += 1
+                      bump(`${action.selector}::hide`)
                     }
 
                     if (this.debug) {
@@ -245,13 +430,7 @@ class PageManipulationModule extends REXClientModule {
                       $(element).css('display', originalValue)
                       $(element).removeAttr('data-rex-prior-css-display')
 
-                      const key = `${action.selector}:show`
-
-                      if (blockedCount[key] === undefined) {
-                        blockedCount[key] = 0
-                      }
-
-                      blockedCount[key] += 1
+                      bump(`${action.selector}::show`)
                     } else {
                       $(element).css('display', '')
                     }
@@ -264,18 +443,12 @@ class PageManipulationModule extends REXClientModule {
                   } else if (action.action == 'report') {
                     const originalValue = $(element).attr('data-rex-reported')
 
-                    const key = `${action.selector}:report`
-
                     if (originalValue !== undefined) {
                       // Already recorded
                     } else {
                       $(element).attr('data-rex-reported', `${Date.now()}`)
 
-                      if (blockedCount[key] === undefined) {
-                        blockedCount[key] = 0
-                      }
-
-                      blockedCount[key] += 1
+                      bump(`${action.selector}::report`)
                     }
 
                     if (this.debug) {
@@ -283,6 +456,8 @@ class PageManipulationModule extends REXClientModule {
                       console.log(action)
                       console.log($(element))
                     }
+                  } else if (action.action == 'add_class') {
+                    this.applyAddClass($(element), action, bump, pushDomain)
                   }
                 })
               }
@@ -293,13 +468,14 @@ class PageManipulationModule extends REXClientModule {
             }
           }
 
-          if ($.isEmptyObject(blockedCount) === false) {
+          if (Object.keys(updates).length > 0 || Object.keys(domains).length > 0) {
             chrome.runtime.sendMessage({
               'messageType': 'logEvent',
               'event': {
                 'name': 'page-manipulation',
                 'url': window.location.href,
-                'updates': blockedCount
+                'updates': updates,
+                'domains': domains
               }
             })
           }

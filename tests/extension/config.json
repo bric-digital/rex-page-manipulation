@@ -21,6 +21,75 @@
             "selector": "#js-link-box-en",
             "action": "hide"
           }]
+        }, {
+          "base_url": "http://localhost:8080/links.html",
+          "actions": [{
+            "selector": "#link-0",
+            "action": "add_class"
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "range_marker",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [0, 8],
+              "within_range": ["00000000", "40000000"]
+            }]
+          }, {
+            "action": "add_class",
+            "selector": "li[id^='li-']",
+            "class_name": "within_marker",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain", "within": "a" },
+              "use": [0, 8],
+              "within_range": ["00000000", "40000000"]
+            }]
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "exception_marker",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [0, 8],
+              "within_range": ["00000000", "40000000"]
+            }],
+            "exceptions": ["wikipedia.org"]
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "all_marker",
+            "conditions_match": "all",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [0, 8],
+              "within_range": ["00000000", "80000000"]
+            }, {
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [8, 16],
+              "within_range": ["00000000", "80000000"]
+            }]
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "any_marker",
+            "conditions_match": "any",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [0, 8],
+              "within_range": ["00000000", "80000000"]
+            }, {
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "use": [8, 16],
+              "within_range": ["00000000", "80000000"]
+            }]
+          }]
         }]
     },
     "ui": [{
