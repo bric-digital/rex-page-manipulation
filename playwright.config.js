@@ -49,12 +49,5 @@ export default defineConfig({
     //   name: 'webkit',
     //   use: { ...devices['Desktop Safari'] },
     // },
-  ],
-
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'python3 -m http.server -d tests/src 8080',
-    port: 8080,
-    reuseExistingServer: !process.env.CI,
-  },
+  ]
 });
