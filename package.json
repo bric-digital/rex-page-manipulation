@@ -31,9 +31,16 @@
         "test:debug": "playwright test --debug",
         "test:headed": "playwright test --headed",
         "test:ui": "playwright test --ui",
-        "test:unit": "playwright test specs/"
+        "test:unit": "playwright test specs/",
+        "server": "node tests/scripts/run-server.js"
     },
     "dependencies": {
-        "@bric/rex-core": "github:bric-digital/rex-core"
+        "@bric/rex-core": "github:bric-digital/rex-core",
+        "check-types": "^11.2.3",
+        "express": "^5.2.1",
+        "psl": "^1.15.0"
+    },
+    "devDependencies": {
+        "@types/slug": "^5.0.9"
     }
 }

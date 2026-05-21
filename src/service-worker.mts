@@ -1,3 +1,5 @@
+import check from 'check-types'
+
 import { REXConfiguration } from '@bric/rex-core/common'
 import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/rex-core/service-worker'
 
@@ -211,6 +213,59 @@ class PageManipulationModule extends REXServiceWorkerModule {
         })
     }
   }
+
+  handleMessage(message:any, sender:any, sendResponse:(response:any) => void):boolean { // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (message.messageType == 'pageManipulationEvaluate') {
+      const condition = message.condition
+
+      if (condition.operation == 'calculate-sha512-hash') {
+        if (message.content === undefined) {
+          sendResponse(false)
+
+          return true
+        } else {
+          rexCorePlugin.generateHash(message.content, 'SHA-512').then((hash) => {
+            if (hash !== null) {
+              let evalValue = hash
+
+              if (check.array(condition.use) && condition.use.length >= 2) {
+                const start:number = condition.use[0]
+                const end:number = condition.use[1]
+
+                evalValue = evalValue.substring(start, end)
+
+                if (check.array(condition.within_range) && condition.within_range.length >= 2) {
+                  const startRange:string = condition.within_range[0]
+                  const endRange:string = condition.within_range[1]
+
+                  console.log(`pageManipulationEvaluate[${message.content}] => ${startRange} < ${evalValue} < ${endRange}`)
+
+                  if (evalValue >= startRange && evalValue <= endRange) {
+                    sendResponse(true)
+
+                    return
+                  }
+                }
+              }
+            }
+
+            sendResponse(false)
+
+            return
+          })
+
+          return true
+        }
+      }
+
+      sendResponse(false)
+
+      return true
+    }
+
+    return false
+  }
+
 }
 
 const plugin = new PageManipulationModule()
