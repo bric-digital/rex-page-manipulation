@@ -6,7 +6,7 @@ import psl from 'psl'
 import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
 
-import { REXPageManipulationConfiguration, REXPageManipulationObscurePage } from '@bric/rex-page-manipulation/service-worker'
+import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from '@bric/rex-page-manipulation/service-worker'
 
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
@@ -230,7 +230,7 @@ class PageManipulationModule extends REXClientModule {
                   console.log(elementRule)
                 }
 
-                elementRule.actions.forEach((action, ruleIndex) => {
+                elementRule.actions.forEach((action:REXPageElementRuleAction|REXPageElementAddClassRuleAction, ruleIndex) => {
                   if (this.debug) {
                     console.log(`Matches for ${action.selector}: ${$(action.selector).length}.`)
                   }
@@ -306,12 +306,14 @@ class PageManipulationModule extends REXClientModule {
                         console.log($(element))
                       }
                     } else if (action.action == 'add_class') {
+                      const addClassAction:REXPageElementAddClassRuleAction = action as REXPageElementAddClassRuleAction
+
                       const attrKey = `data-rex-classes-added-${ruleIndex}`
                       const originalValue = $(element).attr(attrKey)
 
-                      const key = `${action.selector}:add-class`
+                      const key = `${addClassAction.selector}:add-class`
 
-                      let exceptions = action.exceptions
+                      let exceptions = addClassAction.exceptions
 
                       if (exceptions === undefined) {
                         exceptions = []
@@ -324,25 +326,25 @@ class PageManipulationModule extends REXClientModule {
 
                         const passes:boolean[] = []
 
-                        if (check.array(action.conditions)) {
-                          const toCheck = [...action.conditions]
+                        if (check.array(addClassAction.conditions)) {
+                          const toCheck = [...addClassAction.conditions]
 
                           const checkNextCondition = () => {
                             if (toCheck.length == 0) {
                               let matchAll = true
 
-                              if (action.conditions_match === 'any') {
+                              if (addClassAction.conditions_match === 'any') {
                                 matchAll = false
                               }
 
                               if (matchAll && passes.includes(false)) {
-                                console.log(`FAIL-ALL: ${action['class_name']}`)
+                                console.log(`FAIL-ALL: ${addClassAction['class_name']}`)
                               } else if (matchAll === false && passes.includes(true) === false) {
-                                console.log(`FAIL-ANY: ${action['class_name']}`)
+                                console.log(`FAIL-ANY: ${addClassAction['class_name']}`)
                               } else {
-                                console.log(`PASS: ${action['class_name']}`)
+                                console.log(`PASS: ${addClassAction['class_name']}`)
 
-                                $(element).addClass(action['class_name'])
+                                $(element).addClass(addClassAction['class_name'])
 
                                 if (blockedCount[key] === undefined) {
                                   blockedCount[key] = 0
@@ -356,14 +358,14 @@ class PageManipulationModule extends REXClientModule {
                               if (condition === undefined) {
                                 checkNextCondition()
                               } else {
-                                const message = {
+                                const message:REXPageManipulationEvaluateMessage = {
                                   messageType: 'pageManipulationEvaluate',
                                   condition
                                 }
 
                                 const content = this.resolveContent(element, condition.content)
 
-                                if (exceptions.includes(content)) {
+                                if (content === null || exceptions.includes(content)) {
                                   passes.push(false)
 
                                   checkNextCondition()
@@ -384,7 +386,7 @@ class PageManipulationModule extends REXClientModule {
 
                           checkNextCondition()
                         } else {
-                          $(element).addClass(action['class_name'])
+                          $(element).addClass(addClassAction['class_name'])
 
                           if (blockedCount[key] === undefined) {
                             blockedCount[key] = 0
@@ -425,7 +427,7 @@ class PageManipulationModule extends REXClientModule {
     }
   }
 
-  resolveContent(element, content) {
+  resolveContent(element:HTMLElement, content:REXPageElementAddClassRuleConditionContent) {
     let value:string|null|undefined = null
 
     if (content === undefined) {

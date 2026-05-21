@@ -13,9 +13,31 @@ export interface REXPageElementRuleAction {
   action: string,
 }
 
+export interface REXPageElementAddClassRuleConditionContent {
+  source: string,
+  name: string,
+  transform?: string,
+}
+
+export interface REXPageElementAddClassRuleCondition {
+  operation: string,
+  content: REXPageElementAddClassRuleConditionContent,
+  use?: number[],
+  within_range?: string[]
+}
+
+export interface REXPageElementAddClassRuleAction {
+  selector: string,
+  action: string,
+  class_name: string,
+  conditions?: REXPageElementAddClassRuleCondition[],
+  exceptions?: string[],
+  conditions_match?: 'any'|'all'
+}
+
 export interface REXPageElementRule {
   base_url: string,
-  actions: REXPageElementRuleAction[]
+  actions: REXPageElementRuleAction[]|REXPageElementAddClassRuleAction[]
 }
 
 export interface REXPageManipulationObscurePage {
@@ -29,6 +51,12 @@ export interface REXPageManipulationConfiguration {
   url_redirects?: REXPageRedirect[],
   obscure_page?: REXPageManipulationObscurePage[],
   page_elements?: REXPageElementRule[]
+}
+
+export interface REXPageManipulationEvaluateMessage {
+  messageType: 'pageManipulationEvaluate',
+  condition: REXPageElementAddClassRuleCondition,
+  content?: string
 }
 
 class PageManipulationModule extends REXServiceWorkerModule {
@@ -219,7 +247,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
       const condition = message.condition
 
       if (condition.operation == 'calculate-sha512-hash') {
-        if (message.content === undefined) {
+        if (message.content === null) {
           sendResponse(false)
 
           return true
