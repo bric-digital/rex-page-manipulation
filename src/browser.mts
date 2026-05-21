@@ -6,7 +6,7 @@ import psl from 'psl'
 import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
 
-import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from '@bric/rex-page-manipulation/service-worker'
+import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from './types.mjs'
 
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
@@ -369,7 +369,7 @@ class PageManipulationModule extends REXClientModule {
                                   passes.push(false)
 
                                   checkNextCondition()
-                               } else {
+                                } else {
                                   if (content !== undefined && content !== null) {
                                     message['content'] = content
                                   }
@@ -436,8 +436,12 @@ class PageManipulationModule extends REXClientModule {
 
     if (content.source !== undefined) {
       if (content.source === 'attr' && content.name !== undefined) {
-        value = $(element).attr(content.name)
-      }
+        if (content.selector !== undefined) {
+          value = $(element).find(content.selector).attr(content.name)
+        } else {
+          value = $(element).attr(content.name)
+        }
+     }
     }
 
     if (value !== null && value !== undefined) {

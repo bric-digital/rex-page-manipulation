@@ -43,7 +43,7 @@
             "class_name": "within_marker",
             "conditions": [{
               "operation": "calculate-sha512-hash",
-              "content": { "source": "attr", "name": "href", "transform": "domain" },
+              "content": { "selector": "a", "source": "attr", "name": "href", "transform": "domain" },
               "use": [0, 8],
               "within_range": ["00000000", "40000000"]
             }]

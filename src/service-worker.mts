@@ -2,62 +2,7 @@ import check from 'check-types'
 
 import { REXConfiguration } from '@bric/rex-core/common'
 import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/rex-core/service-worker'
-
-export interface REXPageRedirect {
-  url_filter: string,
-  destination: string
-}
-
-export interface REXPageElementRuleAction {
-  selector: string,
-  action: string,
-}
-
-export interface REXPageElementAddClassRuleConditionContent {
-  source: string,
-  name: string,
-  transform?: string,
-}
-
-export interface REXPageElementAddClassRuleCondition {
-  operation: string,
-  content: REXPageElementAddClassRuleConditionContent,
-  use?: number[],
-  within_range?: string[]
-}
-
-export interface REXPageElementAddClassRuleAction {
-  selector: string,
-  action: string,
-  class_name: string,
-  conditions?: REXPageElementAddClassRuleCondition[],
-  exceptions?: string[],
-  conditions_match?: 'any'|'all'
-}
-
-export interface REXPageElementRule {
-  base_url: string,
-  actions: REXPageElementRuleAction[]|REXPageElementAddClassRuleAction[]
-}
-
-export interface REXPageManipulationObscurePage {
-  base_url: string,
-  delay?: number
-}
-
-export interface REXPageManipulationConfiguration {
-  debug?: boolean,
-  enabled?: boolean,
-  url_redirects?: REXPageRedirect[],
-  obscure_page?: REXPageManipulationObscurePage[],
-  page_elements?: REXPageElementRule[]
-}
-
-export interface REXPageManipulationEvaluateMessage {
-  messageType: 'pageManipulationEvaluate',
-  condition: REXPageElementAddClassRuleCondition,
-  content?: string
-}
+import { REXPageRedirect, REXPageManipulationConfiguration } from './types.mjs'
 
 class PageManipulationModule extends REXServiceWorkerModule {
   urlRedirects?:REXPageRedirect[] = []
@@ -265,8 +210,6 @@ class PageManipulationModule extends REXServiceWorkerModule {
                 if (check.array(condition.within_range) && condition.within_range.length >= 2) {
                   const startRange:string = condition.within_range[0]
                   const endRange:string = condition.within_range[1]
-
-                  console.log(`pageManipulationEvaluate[${message.content}] => ${startRange} < ${evalValue} < ${endRange}`)
 
                   if (evalValue >= startRange && evalValue <= endRange) {
                     sendResponse(true)
