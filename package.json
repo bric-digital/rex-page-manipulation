@@ -37,11 +37,11 @@
     "dependencies": {
         "@bric/rex-core": "github:bric-digital/rex-core",
         "check-types": "^11.2.3",
-        "express": "^5.2.1",
         "psl": "^1.15.0"
     },
     "devDependencies": {
         "@types/check-types": "^11.2.2",
-        "@types/slug": "^5.0.9"
+        "@types/slug": "^5.0.9",
+        "express": "^5.2.1"
     }
 }
