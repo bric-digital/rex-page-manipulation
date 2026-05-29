@@ -1,33 +1,8 @@
+import check from 'check-types'
+
 import { REXConfiguration } from '@bric/rex-core/common'
 import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/rex-core/service-worker'
-
-export interface REXPageRedirect {
-  url_filter: string,
-  destination: string
-}
-
-export interface REXPageElementRuleAction {
-  selector: string,
-  action: string,
-}
-
-export interface REXPageElementRule {
-  base_url: string,
-  actions: REXPageElementRuleAction[]
-}
-
-export interface REXPageManipulationObscurePage {
-  base_url: string,
-  delay?: number
-}
-
-export interface REXPageManipulationConfiguration {
-  debug?: boolean,
-  enabled?: boolean,
-  url_redirects?: REXPageRedirect[],
-  obscure_page?: REXPageManipulationObscurePage[],
-  page_elements?: REXPageElementRule[]
-}
+import { REXPageRedirect, REXPageManipulationConfiguration } from './types.mjs'
 
 class PageManipulationModule extends REXServiceWorkerModule {
   urlRedirects?:REXPageRedirect[] = []
@@ -211,6 +186,57 @@ class PageManipulationModule extends REXServiceWorkerModule {
         })
     }
   }
+
+  handleMessage(message:any, sender:any, sendResponse:(response:any) => void):boolean { // eslint-disable-line @typescript-eslint/no-explicit-any
+    if (message.messageType == 'pageManipulationEvaluate') {
+      const condition = message.condition
+
+      if (condition.operation == 'calculate-sha512-hash') {
+        if (message.content === null) {
+          sendResponse(false)
+
+          return true
+        } else {
+          rexCorePlugin.generateHash(message.content, 'SHA-512').then((hash) => {
+            if (hash !== null) {
+              let evalValue = hash
+
+              if (check.array(condition.use) && condition.use.length >= 2) {
+                const start:number = condition.use[0]
+                const end:number = condition.use[1]
+
+                evalValue = evalValue.substring(start, end)
+
+                if (check.array(condition.within_range) && condition.within_range.length >= 2) {
+                  const startRange:string = condition.within_range[0]
+                  const endRange:string = condition.within_range[1]
+
+                  if (evalValue >= startRange && evalValue <= endRange) {
+                    sendResponse(true)
+
+                    return
+                  }
+                }
+              }
+            }
+
+            sendResponse(false)
+
+            return
+          })
+
+          return true
+        }
+      }
+
+      sendResponse(false)
+
+      return true
+    }
+
+    return false
+  }
+
 }
 
 const plugin = new PageManipulationModule()
