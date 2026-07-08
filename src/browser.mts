@@ -97,6 +97,7 @@ class PageManipulationModule extends REXClientModule {
       
       if (this.refreshTimeout == 0) {
         this.refreshTimeout = window.setTimeout(() => {
+          console.log(`[rex-page-manipulation] Apply configuration: ${Date.now()}`)
           this.applyConfiguration()
 
           this.refreshTimeout = 0
