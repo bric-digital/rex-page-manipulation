@@ -97,7 +97,6 @@ class PageManipulationModule extends REXClientModule {
       
       if (this.refreshTimeout == 0) {
         this.refreshTimeout = window.setTimeout(() => {
-          console.log(`[rex-page-manipulation] Apply configuration: ${Date.now()}`)
           this.applyConfiguration()
 
           this.refreshTimeout = 0
@@ -207,6 +206,8 @@ class PageManipulationModule extends REXClientModule {
   }
 
   applyConfiguration() {
+    console.log(`[rex-page-manipulation] Apply configuration: ${Date.now()}`)
+
     if (this.configuration !== undefined) {
       if (this.configuration['debug'] === true) {
         this.debug = true
