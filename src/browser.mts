@@ -8,6 +8,8 @@ import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
 
 import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from './types.mjs'
 
+// TODO add hinting of elements to expect to improve the obscure behavior
+
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
   refreshTimeout:number = 0
@@ -41,63 +43,65 @@ class PageManipulationModule extends REXClientModule {
 
   setup() {
     chrome.runtime.sendMessage({
-        'messageType': 'fetchConfiguration',
-      }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        const configuration = response as REXConfiguration
+      'messageType': 'fetchConfiguration',
+    }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      const configuration = response as REXConfiguration
 
-        this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
+      this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        if (this.debug) {
-          console.log(`Got config...`)
-          console.log(this.configuration)
-        }
+      if (this.debug) {
+        console.log(`Got config...`)
+        console.log(this.configuration)
+      }
 
-        const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
+      const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
 
-        if (obscurePage !== undefined) {
-          for (const obscure of obscurePage) {
+      if (obscurePage !== undefined) {
+        for (const obscure of obscurePage) {
+          if (this.debug) {
+            console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+          }
+          
+          if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
             if (this.debug) {
-              console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+              console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
             }
 
-            
-            if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
-              if (this.debug) {
-                console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
-              }
+            const body = document.querySelector('html')
 
-              const body = document.querySelector('html')
+            if (body !== null) {
+              body.style.opacity = '0'
 
-              if (body !== null) {
-                body.style.opacity = '0'
-
-                if (obscure.delay !== undefined) {
-                  window.setTimeout(() => {
-                    body.style.opacity = '1'
-                  }, obscure.delay)
-                }
+              if (obscure.delay !== undefined) {
+                window.setTimeout(() => {
+                  body.style.opacity = '1'
+                }, obscure.delay)
               }
             }
           }
         }
+      }
 
-        if (this.refreshTimeout == 0) {
-          this.refreshTimeout = window.setTimeout(() => {
-            this.applyConfiguration()
+      if (this.refreshTimeout == 0) {
+        this.refreshTimeout = window.setTimeout(() => {
+          this.applyConfiguration()
 
-            this.refreshTimeout = 0
-          }, 250)
-        }
-      })
+          this.refreshTimeout = 0
+        }, 250)
+      }
+    })
 
-    new MutationObserver(() => {
-        if (this.refreshTimeout == 0) {
-          this.refreshTimeout = window.setTimeout(() => {
-            this.applyConfiguration()
+    new MutationObserver((mutationList, observer) => {
+      console.log(`[rex-page-manipulation] Mutation: ${observer}`)
+      console.log(mutationList)
+      
+      if (this.refreshTimeout == 0) {
+        this.refreshTimeout = window.setTimeout(() => {
+          this.applyConfiguration()
 
-            this.refreshTimeout = 0
-          }, 250)
-        }
+          this.refreshTimeout = 0
+        }, 250)
+      }
     }).observe(document, {subtree: true, childList: true});
 
     // Install custom jQuery selectors
