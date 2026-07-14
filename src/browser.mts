@@ -431,6 +431,8 @@ class PageManipulationModule extends REXClientModule {
         }
       }
     }
+
+    console.log(`[rex-page-manipulation] Done applying configuration: ${Date.now()}`)
   }
 
   resolveContent(element:HTMLElement, content:REXPageElementAddClassRuleConditionContent) {
