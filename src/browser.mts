@@ -206,7 +206,9 @@ class PageManipulationModule extends REXClientModule {
   }
 
   applyConfiguration() {
-    console.log(`[rex-page-manipulation] Apply configuration: ${Date.now()}`)
+    const start = Date.now()
+
+    console.log(`[rex-page-manipulation] Apply configuration: ${start}`)
 
     if (this.configuration !== undefined) {
       if (this.configuration['debug'] === true) {
@@ -432,7 +434,9 @@ class PageManipulationModule extends REXClientModule {
       }
     }
 
-    console.log(`[rex-page-manipulation] Done applying configuration: ${Date.now()}`)
+    const end = Date.now()
+
+    console.log(`[rex-page-manipulation] Done applying configuration: ${end - start}`)
   }
 
   resolveContent(element:HTMLElement, content:REXPageElementAddClassRuleConditionContent) {
