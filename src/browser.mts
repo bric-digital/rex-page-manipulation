@@ -92,6 +92,9 @@ class PageManipulationModule extends REXClientModule {
     })
 
     new MutationObserver((mutationList, observer) => {
+      console.log(`[rex-page-manipulation] Mutation: ${observer}`)
+      console.log(mutationList)
+      
       if (this.refreshTimeout == 0) {
         this.refreshTimeout = window.setTimeout(() => {
           this.applyConfiguration()
