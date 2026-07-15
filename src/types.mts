@@ -38,7 +38,8 @@ export interface REXPageElementRule {
 
 export interface REXPageManipulationObscurePage {
   base_url: string,
-  delay?: number
+  delay?: number,
+  skip?: string[]
 }
 
 export interface REXPageManipulationConfiguration {

@@ -61,8 +61,26 @@ class PageManipulationModule extends REXClientModule {
           if (this.debug) {
             console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
           }
+
+          let doObscure = false
           
           if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
+            doObscure = true
+          }
+
+          let skipPatterns = obscure.skip;
+
+          if (check.array(skipPatterns) === false) {
+            skipPatterns = []
+          }
+
+          for (const pattern of skipPatterns) {
+            if (window.location.href.match(pattern) !== null) {
+              doObscure = false
+            }
+          }
+
+          if (doObscure) {
             if (this.debug) {
               console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
             }
@@ -76,6 +94,10 @@ class PageManipulationModule extends REXClientModule {
                 window.setTimeout(() => {
                   body.style.opacity = '1'
                 }, obscure.delay)
+              } else {
+                window.setTimeout(() => {
+                  body.style.opacity = '1'
+                }, 1000)
               }
             }
           }
@@ -91,9 +113,9 @@ class PageManipulationModule extends REXClientModule {
       }
     })
 
-    new MutationObserver((mutationList, observer) => {
-      console.log(`[rex-page-manipulation] Mutation: ${observer}`)
-      console.log(mutationList)
+    new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
+      // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
+      // console.log(mutationList)
       
       if (this.refreshTimeout == 0) {
         this.refreshTimeout = window.setTimeout(() => {
@@ -140,8 +162,6 @@ class PageManipulationModule extends REXClientModule {
                   if (this.debug) {
                     console.log(`Matches for ${action.selector}: ${$(action.selector).length}.`)
                   }
-
-                  const selectorStart = Date.now()
 
                   $(action.selector).each((index, element) => {
                     if (action.action === 'hide') {
