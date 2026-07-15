@@ -206,10 +206,6 @@ class PageManipulationModule extends REXClientModule {
   }
 
   applyConfiguration() {
-    const start = Date.now()
-
-    console.log(`[rex-page-manipulation] Apply configuration: ${start}`)
-
     if (this.configuration !== undefined) {
       if (this.configuration['debug'] === true) {
         this.debug = true
@@ -232,6 +228,9 @@ class PageManipulationModule extends REXClientModule {
             this.urlContains(window.location.href, baseUrl).then((matches) => {
               if (matches) {
                 // Apply rule
+
+                const start = Date.now()
+                console.log(`[rex-page-manipulation] Apply configuration: ${start}`)
 
                 if (this.debug) {
                   console.log(`Applying page manipulation rule to ${window.location.href}...`)
@@ -412,6 +411,9 @@ class PageManipulationModule extends REXClientModule {
                     }
                   })
                 })
+
+                const end = Date.now()
+                console.log(`[rex-page-manipulation] Done applying configuration: ${end - start}`)
               } else {
                 if (this.debug) {
                   console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
@@ -433,10 +435,6 @@ class PageManipulationModule extends REXClientModule {
         }
       }
     }
-
-    const end = Date.now()
-
-    console.log(`[rex-page-manipulation] Done applying configuration: ${end - start}`)
   }
 
   resolveContent(element:HTMLElement, content:REXPageElementAddClassRuleConditionContent) {
