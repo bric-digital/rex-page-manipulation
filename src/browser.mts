@@ -131,9 +131,6 @@ class PageManipulationModule extends REXClientModule {
               if (matches) {
                 // Apply rule
 
-                const start = Date.now()
-                console.log(`[rex-page-manipulation] Apply configuration: ${start}`)
-
                 if (this.debug) {
                   console.log(`Applying page manipulation rule to ${window.location.href}...`)
                   console.log(elementRule)
@@ -314,14 +311,7 @@ class PageManipulationModule extends REXClientModule {
                       }
                     }
                   })
-
-                  const selectorEnd = Date.now()
-
-                  console.log(`[rex-page-manipulation] Time(${action.selector}: ${selectorEnd - selectorStart}`)
                 })
-
-                const end = Date.now()
-                console.log(`[rex-page-manipulation] Done applying configuration: ${end - start}`)
               } else {
                 if (this.debug) {
                   console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
