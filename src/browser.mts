@@ -50,7 +50,7 @@ class PageManipulationModule extends REXClientModule {
       this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
       if (this.debug) {
-        console.log(`Got config...`)
+        console.log(`[rex-page-manipulation] Got config...`)
         console.log(this.configuration)
       }
 
@@ -59,7 +59,7 @@ class PageManipulationModule extends REXClientModule {
       if (obscurePage !== undefined) {
         for (const obscure of obscurePage) {
           if (this.debug) {
-            console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+            console.log(`[rex-page-manipulation] Checking if obscure rule ${obscure.base_url} is active...`)
           }
 
           let doObscure = false
@@ -79,6 +79,8 @@ class PageManipulationModule extends REXClientModule {
               doObscure = false
             }
           }
+
+          console.log(`[rex-page-manipulation] doObscure: ${doObscure}`)
 
           if (doObscure) {
             if (this.debug) {
@@ -138,7 +140,7 @@ class PageManipulationModule extends REXClientModule {
       }
 
       if (this.debug) {
-        console.log(`[PageManipulation] Configuration:`)
+        console.log(`[rex-page-manipulation] Configuration:`)
         console.log(this.configuration)
       }
 
@@ -154,13 +156,13 @@ class PageManipulationModule extends REXClientModule {
                 // Apply rule
 
                 if (this.debug) {
-                  console.log(`Applying page manipulation rule to ${window.location.href}...`)
+                  console.log(`[rex-page-manipulation] Applying page manipulation rule to ${window.location.href}...`)
                   console.log(elementRule)
                 }
 
                 elementRule.actions.forEach((action:REXPageElementRuleAction|REXPageElementAddClassRuleAction, ruleIndex) => {
                   if (this.debug) {
-                    console.log(`Matches for ${action.selector}: ${$(action.selector).length}.`)
+                    console.log(`[rex-page-manipulation] Matches for ${action.selector}: ${$(action.selector).length}.`)
                   }
 
                   $(action.selector).each((index, element) => {
@@ -184,7 +186,7 @@ class PageManipulationModule extends REXClientModule {
                       }
 
                       if (this.debug) {
-                        console.log('[PageManipulation] Hide element:')
+                        console.log('[rex-page-manipulation] Hide element:')
                         console.log(action)
                         console.log($(element))
                       }
@@ -207,7 +209,7 @@ class PageManipulationModule extends REXClientModule {
                       }
 
                       if (this.debug) {
-                        console.log('[PageManipulation] Show element:')
+                        console.log('[rex-page-manipulation] Show element:')
                         console.log(action)
                         console.log($(element))
                       }
@@ -229,7 +231,7 @@ class PageManipulationModule extends REXClientModule {
                       }
 
                       if (this.debug) {
-                        console.log('[PageManipulation] Report element:')
+                        console.log('[rex-page-manipulation] Report element:')
                         console.log(action)
                         console.log($(element))
                       }
@@ -266,11 +268,11 @@ class PageManipulationModule extends REXClientModule {
                               }
 
                               if (matchAll && passes.includes(false)) {
-                                console.log(`FAIL-ALL: ${addClassAction['class_name']}`)
+                                console.log(`[rex-page-manipulation] FAIL-ALL: ${addClassAction['class_name']}`)
                               } else if (matchAll === false && passes.includes(true) === false) {
-                                console.log(`FAIL-ANY: ${addClassAction['class_name']}`)
+                                console.log(`[rex-page-manipulation] FAIL-ANY: ${addClassAction['class_name']}`)
                               } else {
-                                console.log(`PASS: ${addClassAction['class_name']}`)
+                                console.log(`[rex-page-manipulation] PASS: ${addClassAction['class_name']}`)
 
                                 $(element).addClass(addClassAction['class_name'])
 
@@ -325,7 +327,7 @@ class PageManipulationModule extends REXClientModule {
                       }
 
                       if (this.debug) {
-                        console.log('[PageManipulation] Add class element:')
+                        console.log('[rex-page-manipulation] Add class element:')
                         console.log(action)
                         console.log($(element))
                       }
@@ -334,7 +336,7 @@ class PageManipulationModule extends REXClientModule {
                 })
               } else {
                 if (this.debug) {
-                  console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
+                  console.log(`[rex-page-manipulation] Skip applying page manipulation rules to ${window.location.href}...`)
                 }
               }
 
