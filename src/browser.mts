@@ -242,6 +242,8 @@ class PageManipulationModule extends REXClientModule {
                     console.log(`Matches for ${action.selector}: ${$(action.selector).length}.`)
                   }
 
+                  const selectorStart = Date.now()
+
                   $(action.selector).each((index, element) => {
                     if (action.action === 'hide') {
                       if ($(element).attr('data-rex-prior-css-display') === undefined) {
@@ -410,6 +412,10 @@ class PageManipulationModule extends REXClientModule {
                       }
                     }
                   })
+
+                  const selectorEnd = Date.now()
+
+                  console.log(`[rex-page-manipulation] Time(${action.selector}: ${selectorEnd - selectorStart}`)
                 })
 
                 const end = Date.now()
