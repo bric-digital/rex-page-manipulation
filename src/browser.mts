@@ -76,6 +76,8 @@ class PageManipulationModule extends REXClientModule {
 
           for (const pattern of skipPatterns) {
             if (window.location.href.match(pattern) !== null) {
+              console.log(`[rex-page-manipulation] Skipping obscure rule ${obscure.base_url} because of ${pattern}.`)
+
               doObscure = false
             }
           }
