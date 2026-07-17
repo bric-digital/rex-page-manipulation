@@ -116,7 +116,7 @@ class PageManipulationModule extends REXClientModule {
         const body = document.querySelector('html')
 
         if (body !== null) {
-          body.style.opacity = '0'
+          body.style.opacity = '1'
         }
       }
 
