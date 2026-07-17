@@ -112,6 +112,12 @@ class PageManipulationModule extends REXClientModule {
             }
           }
         }
+      } else {
+        const body = document.querySelector('html')
+
+        if (body !== null) {
+          body.style.opacity = '0'
+        }
       }
 
       if (this.refreshTimeout == 0) {
