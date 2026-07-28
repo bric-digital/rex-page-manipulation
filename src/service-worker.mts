@@ -159,6 +159,8 @@ class PageManipulationModule extends REXServiceWorkerModule {
                   condition: {
                     urlFilter: urlPattern,
                     resourceTypes: [
+                      'main_frame',
+                      'sub_frame',
                       'script',
                       'xmlhttprequest',
                       'websocket',
