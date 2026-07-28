@@ -127,6 +127,12 @@ class PageManipulationModule extends REXClientModule {
           this.refreshTimeout = 0
         }, 250)
       }
+    }).catch((err:any) => {
+      const body = document.querySelector('html')
+
+      if (body !== null) {
+        body.style.opacity = '1'
+      }
     })
 
     new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
