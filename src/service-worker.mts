@@ -129,7 +129,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
     if (this.urlRedirects !== undefined) {
       for (const redirect of this.urlRedirects) {
         const index = this.urlRedirects.indexOf(redirect)
-        const priority = this.urlRedirects.length - index
+        const priority = 1
 
         const newRule = this.parseRedirect(redirect, (index + 1), priority)
 
@@ -140,7 +140,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
     if (config.enabled) {
       chrome.declarativeNetRequest.getDynamicRules()
         .then((oldRules) => {
-          const oldRuleIds = []
+          const oldRuleIds:number[] = []
 
           for (const oldRule of oldRules) {
             if (['redirect', 'block', 'allow'].includes(oldRule.action.type)) {
@@ -148,20 +148,47 @@ class PageManipulationModule extends REXServiceWorkerModule {
             }
           }
 
-          chrome.declarativeNetRequest.updateDynamicRules({
-            removeRuleIds: oldRuleIds,
-            addRules: newRules
-          })
-          .then(() => {
-            if (this.debug) {
-              console.log(`[PageManipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
-              console.log(newRules)
+          rexCorePlugin.handleMessage({ messageType: 'fetchWhitelistURLs'}, this, (urlPatterns:string[]) => {
+            for (const urlPattern of urlPatterns) {
+              const index = urlPatterns.indexOf(urlPattern)
+
+              if (this.urlRedirects !== undefined) {
+                const allowRule:chrome.declarativeNetRequest.Rule = {
+                  id: this.urlRedirects.length + index + 1,
+                  priority: 1000,
+                  condition: {
+                    urlFilter: urlPattern,
+                    resourceTypes: [
+                      'script',
+                      'xmlhttprequest',
+                      'websocket',
+                      'webtransport',
+                    ]
+                  },
+                  action: {
+                    type: 'allow'
+                  }
+              }
+
+              newRules.push(allowRule)
             }
 
-          }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
-          })
+            chrome.declarativeNetRequest.updateDynamicRules({
+              removeRuleIds: oldRuleIds,
+              addRules: newRules
+            })
+            .then(() => {
+              if (this.debug) {
+                console.log(`[PageManipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
+                console.log(newRules)
+              }
+
+            }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+              console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
+            })
+          }
         })
+      })
     } else {
       if (this.debug) {
         console.log(`[PageManipulation] Module included in extension, but disabled via configuration.`)
@@ -232,7 +259,33 @@ class PageManipulationModule extends REXServiceWorkerModule {
       sendResponse(false)
 
       return true
+    } else if (message.messageType == 'pageManipulationClearRedirects') {
+      chrome.declarativeNetRequest.getDynamicRules()
+        .then((oldRules) => {
+          const oldRuleIds = []
+
+          for (const oldRule of oldRules) {
+            if (['redirect', 'block', 'allow'].includes(oldRule.action.type)) {
+              oldRuleIds.push(oldRule.id)
+            }
+          }
+
+          chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: oldRuleIds
+          })
+          .then(() => {
+            chrome.declarativeNetRequest.getDynamicRules()
+              .then((existingRules) => {
+                sendResponse(existingRules)
+              })
+          }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            console.log(`[PageManipulation] Unable to clear blocking rules: ${reason}`)
+          })
+        })
+
+      return true
     }
+
 
     return false
   }
