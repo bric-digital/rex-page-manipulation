@@ -148,7 +148,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
             }
           }
 
-          rexCorePlugin.handleMessage({ messageType: 'fetchWhitelistURLs'}, this, (urlPatterns:string[]) => {
+          rexCorePlugin.handleMessage({ messageType: 'fetchAllowedURLs'}, this, (urlPatterns:string[]) => {
             for (const urlPattern of urlPatterns) {
               const index = urlPatterns.indexOf(urlPattern)
 
