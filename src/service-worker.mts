@@ -172,21 +172,20 @@ class PageManipulationModule extends REXServiceWorkerModule {
 
               newRules.push(allowRule)
             }
-
-            chrome.declarativeNetRequest.updateDynamicRules({
-              removeRuleIds: oldRuleIds,
-              addRules: newRules
-            })
-            .then(() => {
-              if (this.debug) {
-                console.log(`[PageManipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
-                console.log(newRules)
-              }
-
-            }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-              console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
-            })
           }
+
+          chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: oldRuleIds,
+            addRules: newRules
+          })
+          .then(() => {
+            if (this.debug) {
+              console.log(`[PageManipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
+              console.log(newRules)
+            }
+          }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
+          })
         })
       })
     } else {
