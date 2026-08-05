@@ -162,7 +162,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
 
         const newRules = this.parseRedirect(redirect, (index + 1), priority)
 
-        for (const newRule:chrome.declarativeNetRequest.Rule of newRules) {
+        for (const newRule of newRules) {
           newRules.push(newRule)
         }
       }

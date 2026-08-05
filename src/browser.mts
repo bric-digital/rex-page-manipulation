@@ -127,7 +127,9 @@ class PageManipulationModule extends REXClientModule {
           this.refreshTimeout = 0
         }, 250)
       }
-    }).catch((err:any) => {
+    }).catch((err:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      console.log(`[rex-page-manipulation] Error unobscuring page: ${err}`)
+
       const body = document.querySelector('html')
 
       if (body !== null) {
