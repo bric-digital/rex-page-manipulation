@@ -70,7 +70,9 @@ class PageManipulationModule extends REXServiceWorkerModule {
       })
   }
 
-  parseRedirect(configRule:REXPageRedirect, id:number, priority:number):chrome.declarativeNetRequest.Rule {
+  parseRedirect(configRule:REXPageRedirect, id:number, priority:number):chrome.declarativeNetRequest.Rule[] {
+    const newRules = []
+
     const newRule:chrome.declarativeNetRequest.Rule = {
       id,
       priority,
@@ -106,7 +108,34 @@ class PageManipulationModule extends REXServiceWorkerModule {
       newRule.action['redirect'] = redirect
     }
 
-    return newRule
+    newRules.push(newRule)
+
+    if (configRule.exceptions !== undefined) {
+      for (const exception of configRule.exceptions) {
+        const newRule:chrome.declarativeNetRequest.Rule = {
+          id: (Number.MAX_SAFE_INTEGER - id),
+          priority: priority + 1,
+          condition: {
+            urlFilter: exception,
+            resourceTypes: [
+              'main_frame',
+              'sub_frame',
+              'script',
+              'xmlhttprequest',
+              'websocket',
+              'webtransport',
+            ]
+          },
+          action: {
+            type: 'allow'
+          }
+        }
+
+        newRules.push(newRule)
+      }
+    }
+
+    return newRules
   }
 
   updateConfiguration(config:REXPageManipulationConfiguration) {
@@ -131,9 +160,11 @@ class PageManipulationModule extends REXServiceWorkerModule {
         const index = this.urlRedirects.indexOf(redirect)
         const priority = 1
 
-        const newRule = this.parseRedirect(redirect, (index + 1), priority)
+        const newRules = this.parseRedirect(redirect, (index + 1), priority)
 
-        newRules.push(newRule)
+        for (const newRule:chrome.declarativeNetRequest.Rule of newRules) {
+          newRules.push(newRule)
+        }
       }
     }
 

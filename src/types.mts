@@ -1,6 +1,7 @@
 export interface REXPageRedirect {
   url_filter: string,
-  destination: string
+  destination: string,
+  exceptions?: string[]
 }
 
 export interface REXPageElementRuleAction {
