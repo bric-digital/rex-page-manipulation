@@ -50,4 +50,24 @@ test.describe('REX Page Manipulation', () => {
       return opacity;
     }).toBe('1');    
   })
+
+  test('Test that blur with message blurs page and shows overlay.', async ({ page }) => {
+    await page.goto(`https://example.com/`)
+
+    await expect(page.locator('#rex-blur-overlay')).toContainText('Friction test message')
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        return window.getComputedStyle(document.body).getPropertyValue('filter');
+      });
+    }).toContain('blur');
+
+    await expect(page.locator('#rex-blur-overlay')).toHaveCount(0, { timeout: 5000 })
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        return window.getComputedStyle(document.body).getPropertyValue('filter');
+      });
+    }).toBe('none');
+  })
 })

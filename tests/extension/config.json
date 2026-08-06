@@ -8,6 +8,11 @@
             "base_url": "https://archive.org/",
             "delay": 1500
         }],
+        "blur_with_message": [{
+            "base_url": "https://example.com/",
+            "delay": 1500,
+            "message": "Friction test message"
+        }],
         "url_redirects": [{
             "url_filter": "||coca-cola.com"
         }],

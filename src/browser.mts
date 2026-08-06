@@ -6,7 +6,7 @@ import psl from 'psl'
 import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
 
-import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from './types.mjs'
+import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageManipulationBlurWithMessage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from './types.mjs'
 
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
@@ -37,6 +37,43 @@ class PageManipulationModule extends REXClientModule {
         resolve(false)
       }
     })
+  }
+
+  blurWithMessage(blurPage:REXPageManipulationBlurWithMessage) {
+    const apply = () => {
+      document.body.style.filter = 'blur(8px)'
+
+      const overlay = document.createElement('div')
+
+      overlay.id = 'rex-blur-overlay'
+      overlay.textContent = blurPage.message
+      overlay.setAttribute('style', 'position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center; padding: 2em; background: rgba(255, 255, 255, 0.6); color: #222222; font: 600 20px/1.4 system-ui, sans-serif; text-align: center;')
+
+      // Overlay is a sibling of body: CSS filter blurs all descendants, so the
+      // message must live outside the blurred element.
+      document.documentElement.appendChild(overlay)
+
+      if (blurPage.delay !== undefined) {
+        window.setTimeout(() => {
+          document.body.style.filter = ''
+
+          overlay.remove()
+        }, blurPage.delay)
+      }
+    }
+
+    if (document.body !== null) {
+      apply()
+    } else {
+      // Content scripts at document_start can run before <body> exists.
+      new MutationObserver((_mutations, observer) => {
+        if (document.body !== null) {
+          observer.disconnect()
+
+          apply()
+        }
+      }).observe(document.documentElement, { childList: true })
+    }
   }
 
   setup() {
@@ -77,6 +114,20 @@ class PageManipulationModule extends REXClientModule {
                   }, obscure.delay)
                 }
               }
+            }
+          }
+        }
+
+        const blurPages = (this.configuration?.['blur_with_message'] as REXPageManipulationBlurWithMessage[])
+
+        if (blurPages !== undefined) {
+          for (const blurPage of blurPages) {
+            if (window.location.href.toLowerCase().includes(blurPage.base_url.toLowerCase())) {
+              if (this.debug) {
+                console.log(`Initially blurring ${window.location.href} for rule ${blurPage.base_url}...`)
+              }
+
+              this.blurWithMessage(blurPage)
             }
           }
         }

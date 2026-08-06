@@ -41,11 +41,18 @@ export interface REXPageManipulationObscurePage {
   delay?: number
 }
 
+export interface REXPageManipulationBlurWithMessage {
+  base_url: string,
+  delay?: number,
+  message: string
+}
+
 export interface REXPageManipulationConfiguration {
   debug?: boolean,
   enabled?: boolean,
   url_redirects?: REXPageRedirect[],
   obscure_page?: REXPageManipulationObscurePage[],
+  blur_with_message?: REXPageManipulationBlurWithMessage[],
   page_elements?: REXPageElementRule[]
 }
 
