@@ -47,7 +47,7 @@ class PageManipulationModule extends REXClientModule {
 
       overlay.id = 'rex-blur-overlay'
       overlay.textContent = blurPage.message
-      overlay.setAttribute('style', 'position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center; padding: 2em; background: rgba(255, 255, 255, 0.6); color: #222222; font: 600 20px/1.4 system-ui, sans-serif; text-align: center;')
+      overlay.setAttribute('style', 'position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 2147483647; display: flex; align-items: center; justify-content: center; padding: 2em; background: rgba(255, 255, 255, 0.6); color: #444444; font: 600 60px/1.4 system-ui, sans-serif; text-align: center;')
 
       // Overlay is a sibling of body: CSS filter blurs all descendants, so the
       // message must live outside the blurred element.
