@@ -10,6 +10,7 @@ import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPa
 
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
+  configurationAttempts:number = 0
   refreshTimeout:number = 0
   debug:boolean = false
 
@@ -41,6 +42,11 @@ class PageManipulationModule extends REXClientModule {
 
   blurWithMessage(blurPage:REXPageManipulationBlurWithMessage) {
     const apply = () => {
+      // Idempotent: config refreshes or setup retries must not stack banners.
+      if (document.getElementById('rex-blur-overlay') !== null) {
+        return
+      }
+
       document.body.style.filter = 'blur(8px)'
 
       const overlay = document.createElement('div')
@@ -80,6 +86,18 @@ class PageManipulationModule extends REXClientModule {
     chrome.runtime.sendMessage({
         'messageType': 'fetchConfiguration',
       }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+        // A cold service worker can answer before the stored configuration
+        // exists; retry briefly instead of silently applying nothing.
+        if (response === undefined || response === null) {
+          if (this.configurationAttempts < 20) {
+            this.configurationAttempts += 1
+
+            window.setTimeout(() => { this.setup() }, 250)
+          }
+
+          return
+        }
+
         const configuration = response as REXConfiguration
 
         this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -138,6 +156,14 @@ class PageManipulationModule extends REXClientModule {
 
             this.refreshTimeout = 0
           }, 250)
+        }
+      }).catch(() => {
+        // The message itself can fail while the service worker is still
+        // starting ("receiving end does not exist"); retry the same way.
+        if (this.configurationAttempts < 20) {
+          this.configurationAttempts += 1
+
+          window.setTimeout(() => { this.setup() }, 250)
         }
       })
 
