@@ -137,6 +137,17 @@ class PageManipulationModule extends REXServiceWorkerModule {
       }
     }
 
+    // Redirect rules need the declarativeNetRequest permission; extensions
+    // that only use the DOM features (blur, obscure, element rules) may not
+    // request it, and chrome.declarativeNetRequest is undefined without it.
+    if (chrome.declarativeNetRequest === undefined) {
+      if (newRules.length > 0) {
+        console.warn('[rex-page-manipulation] url_redirects configured but the declarativeNetRequest permission is missing; redirects skipped.')
+      }
+
+      return
+    }
+
     if (config.enabled) {
       chrome.declarativeNetRequest.getDynamicRules()
         .then((oldRules) => {
