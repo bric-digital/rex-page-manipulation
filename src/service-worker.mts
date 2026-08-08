@@ -160,10 +160,10 @@ class PageManipulationModule extends REXServiceWorkerModule {
         const index = this.urlRedirects.indexOf(redirect)
         const priority = 1
 
-        const newRules = this.parseRedirect(redirect, (index + 1), priority)
+        const parsedRules = this.parseRedirect(redirect, (index + 1), priority)
 
-        for (const newRule of newRules) {
-          newRules.push(newRule)
+        for (const parsedRule of parsedRules) {
+          newRules.push(parsedRule)
         }
       }
     }
