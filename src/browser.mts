@@ -59,6 +59,19 @@ class PageManipulationModule extends REXClientModule {
       // message must live outside the blurred element.
       document.documentElement.appendChild(overlay)
 
+      chrome.runtime.sendMessage({
+        'messageType': 'logEvent',
+        'event': {
+          'name': 'pdk-app-event',
+          'event_name': 'rex-page-manipulation-blur',
+          'event_details': {
+            'url': window.location.href,
+            'delay': blurPage.delay,
+            'date': Date.now()
+          }
+        }
+      })
+
       if (blurPage.delay !== undefined) {
         window.setTimeout(() => {
           document.body.style.filter = ''

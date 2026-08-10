@@ -31,6 +31,11 @@ class PageManipulationModule extends REXServiceWorkerModule {
           base_url: 'URL to to obscure.',
           delay: 'Number (optional), in milliseconds to wait to reveal page.',
         }],
+        blur_with_message: [{
+          base_url: 'URL substring to match for blurring.',
+          delay: 'Number (optional), in milliseconds before the blur and message are removed.',
+          message: 'String, message shown centered over the blurred page.'
+        }],
         url_redirects: [{
           url_filter: 'URL pattern to match for redirection. See https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest for "URL filter syntax".',
           destination: 'URL to send matched requests. May external or an internal URL within the extension.'
