@@ -250,7 +250,10 @@ class PageManipulationModule extends REXServiceWorkerModule {
       this.debug = false
     }
 
-    this.urlRedirects = config['url_redirects']
+    if (config['url_redirects'] !== undefined) {
+      this.urlRedirects = []
+      this.urlRedirects.push(...config['url_redirects'])
+    }
 
     if (config.enabled) {
       const newRules:chrome.declarativeNetRequest.Rule[] = []
