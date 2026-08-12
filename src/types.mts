@@ -1,7 +1,9 @@
 export interface REXPageRedirect {
-  url_filter: string,
+  pattern: string,
   destination: string,
-  exceptions?: string[]
+  mode?: 'urlFilter' | 'regex',
+  exceptions?: string[],
+  url_filter?: string // Temp backward compatibility
 }
 
 export interface REXPageElementRuleAction {

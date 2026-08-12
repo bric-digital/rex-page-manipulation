@@ -7,7 +7,7 @@ import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/
 import { REXPageRedirect, REXPageManipulationConfiguration } from './types.mjs'
 
 class PageManipulationModule extends REXServiceWorkerModule {
-  urlRedirects?:REXPageRedirect[] = []
+  urlRedirects:REXPageRedirect[] = []
   // pageElements = []
 
   debug:boolean = false
@@ -22,6 +22,30 @@ class PageManipulationModule extends REXServiceWorkerModule {
 
   setup() {
     this.refreshConfiguration()
+
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      let tabUrl:string = ''
+      
+      if (tab.url !== undefined) {
+        tabUrl = tab.url
+      } else if (changeInfo.url !== undefined) {
+        tabUrl = changeInfo.url
+      } else {
+        return
+      }
+
+      for (const rule of this.urlRedirects) {
+        if (rule.mode === undefined || rule.mode === 'regex') {
+          const regex:RegExp = new RegExp(rule.pattern)
+
+          if (regex.test(tabUrl)) {
+            chrome.tabs.update(tabId, { url: rule.destination })
+
+            return
+          }
+        }
+      }
+    })
   }
 
   fetchNextRuleId(): Promise<number> {
@@ -41,7 +65,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
         if (response !== null) {
           console.log(`[rex-page-manipulation] fetchNextRuleId[1.5]: ${typeof response}`)
 
-          nextId = Math.floor(response + 1)
+          nextId = Math.floor((response + 1) % (2**31 - 1))
         }
 
         const storeNext = {
@@ -118,12 +142,20 @@ class PageManipulationModule extends REXServiceWorkerModule {
     return new Promise<chrome.declarativeNetRequest.Rule[]>((redirectResolve) => {
       const newRules:chrome.declarativeNetRequest.Rule[] = []
 
+      let mode = 'regex'
+      let pattern = configRule.pattern
+
+      if (pattern === undefined && configRule['url_filter'] !== undefined) { // Legacy compatibility mode. Remove when ok
+        mode = 'urlFilter'
+        pattern = configRule['url_filter']
+      }
+
       this.fetchNextRuleId().then((ruleId:number) => {
         const newRule:chrome.declarativeNetRequest.Rule = {
           id: ruleId,
           priority,
           condition: {
-            urlFilter: configRule['url_filter'],
+            regexFilter: pattern,
             resourceTypes: [
               'main_frame',
               'sub_frame',
@@ -136,6 +168,12 @@ class PageManipulationModule extends REXServiceWorkerModule {
           action: {
             type: 'block'
           }
+        }
+
+        if (mode === 'urlFilter') {
+          delete newRule.condition.regexFilter
+
+          newRule.condition.urlFilter = pattern
         }
 
         const destination = configRule.destination
@@ -166,7 +204,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
               this.fetchNextRuleId().then((exceptionRuleId:number) => {
                 const newRule:chrome.declarativeNetRequest.Rule = {
                   id: exceptionRuleId,
-                  priority: priority + 1,
+                  priority: priority + 100,
                   condition: {
                     urlFilter: exception,
                     resourceTypes: [
@@ -181,6 +219,12 @@ class PageManipulationModule extends REXServiceWorkerModule {
                   action: {
                     type: 'allow'
                   }
+                }
+
+                if (mode === 'urlFilter') {
+                  delete newRule.condition.regexFilter
+
+                  newRule.condition.urlFilter = pattern
                 }
 
                 newRules.push(newRule)
@@ -207,12 +251,6 @@ class PageManipulationModule extends REXServiceWorkerModule {
     }
 
     this.urlRedirects = config['url_redirects']
-
-    // this.pageElements = config['page_elements']
-
-    // if ([null, undefined].includes(this.pageElements)) {
-    //     this.pageElements = []
-    // }
 
     if (config.enabled) {
       const newRules:chrome.declarativeNetRequest.Rule[] = []
@@ -256,7 +294,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
                     id: ruleId,
                     priority: 1000,
                     condition: {
-                      urlFilter: urlPattern,
+                      regexFilter: urlPattern,
                       resourceTypes: [
                         'script',
                         'xmlhttprequest',
