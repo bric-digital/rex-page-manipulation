@@ -36,11 +36,12 @@ class PageManipulationModule extends REXServiceWorkerModule {
       rexCorePlugin.handleMessage(fetchLast, this, (response:number) => {
         console.log(`[rex-page-manipulation] fetchNextRuleId[1]: ${response}`)
 
-
         let nextId = 1
 
         if (response !== null) {
-          nextId = Math.floor((response + 1) % (2**31 - 1))
+          console.log(`[rex-page-manipulation] fetchNextRuleId[1.5]: ${typeof response}`)
+
+          nextId = Math.floor(response + 1)
         }
 
         const storeNext = {
