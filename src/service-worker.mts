@@ -39,8 +39,6 @@ class PageManipulationModule extends REXServiceWorkerModule {
 
         let nextId = 1
 
-
-
         if (response !== null) {
           nextId = Math.floor((response + 1) % (2**31 - 1))
         }
@@ -51,8 +49,11 @@ class PageManipulationModule extends REXServiceWorkerModule {
           value: nextId
         }
 
+        console.log(`[rex-page-manipulation] fetchNextRuleId[2]:`)
+        console.log(storeNext)
+
         rexCorePlugin.handleMessage(storeNext, this, (response) => { // eslint-disable-line @typescript-eslint/no-unused-vars
-          console.log(`[rex-page-manipulation] fetchNextRuleId[2]: ${nextId}`)
+          console.log(`[rex-page-manipulation] fetchNextRuleId[3]: ${nextId}`)
 
           resolve(nextId)
         })
