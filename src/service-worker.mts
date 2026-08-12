@@ -91,7 +91,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
           const pageManipulationConfig = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
           if (this.debug) {
-            console.log(`[PageManipulation] Configuration:`)
+            console.log(`[rex-page-manipulation] Configuration:`)
             console.log(pageManipulationConfig)
           }
 
@@ -282,11 +282,11 @@ class PageManipulationModule extends REXServiceWorkerModule {
               })
               .then(() => {
                 if (this.debug) {
-                  console.log(`[PageManipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
+                  console.log(`[rex-page-manipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
                   console.log(newRules)
                 }
               }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-                console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
+                console.log(`[rex-page-manipulation] Unable to update blocking rules: ${reason}`)
               })
             })
           })
@@ -297,7 +297,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
       })
     } else {
       if (this.debug) {
-        console.log(`[PageManipulation] Module included in extension, but disabled via configuration.`)
+        console.log(`[rex-page-manipulation] Module included in extension, but disabled via configuration.`)
       }
 
       chrome.declarativeNetRequest.getDynamicRules()
@@ -309,11 +309,11 @@ class PageManipulationModule extends REXServiceWorkerModule {
           })
           .then(() => {
             if (this.debug) {
-              console.log(`[PageManipulation] Dynamic rules successfully cleared.`)
+              console.log(`[rex-page-manipulation] Dynamic rules successfully cleared.`)
             }
           }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             if (this.debug) {
-              console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
+              console.log(`[rex-page-manipulation] Unable to update blocking rules: ${reason}`)
             }
           })
         })
@@ -385,7 +385,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
                 sendResponse(existingRules)
               })
           }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            console.log(`[PageManipulation] Unable to clear blocking rules: ${reason}`)
+            console.log(`[rex-page-manipulation] Unable to clear blocking rules: ${reason}`)
           })
         })
 
