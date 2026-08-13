@@ -58,13 +58,9 @@ class PageManipulationModule extends REXServiceWorkerModule {
       }
 
       rexCorePlugin.handleMessage(fetchLast, this, (response:number) => {
-        console.log(`[rex-page-manipulation] fetchNextRuleId[1]: ${response}`)
-
         let nextId = 1
 
         if (response !== null) {
-          console.log(`[rex-page-manipulation] fetchNextRuleId[1.5]: ${typeof response}`)
-
           nextId = Math.floor((response + 1) % (2**31 - 1))
         }
 
@@ -74,17 +70,8 @@ class PageManipulationModule extends REXServiceWorkerModule {
           value: nextId
         }
 
-        console.log(`[rex-page-manipulation] fetchNextRuleId[2]:`)
-        console.log(storeNext)
-
         rexCorePlugin.handleMessage(storeNext, this, (response) => { // eslint-disable-line @typescript-eslint/no-unused-vars
-          console.log(`[rex-page-manipulation] fetchNextRuleId[3]: ${nextId}`)
-
-          rexCorePlugin.handleMessage(fetchLast, this, (checkId:number) => {
-            console.log(`[rex-page-manipulation] fetchNextRuleId[3]: ${checkId}`)
-
-            resolve(nextId)
-          })
+          resolve(nextId)
         })
       })
     })
@@ -316,11 +303,11 @@ class PageManipulationModule extends REXServiceWorkerModule {
                 })
               })
             }).then(() => {
-              console.log(`[rex-page-manipulation] Old rule IDs:`)
-              console.log(oldRuleIds)
+              // console.log(`[rex-page-manipulation] Old rule IDs:`)
+              // console.log(oldRuleIds)
 
-              console.log(`[rex-page-manipulation] New rules:`)
-              console.log(newRules)
+              // console.log(`[rex-page-manipulation] New rules:`)
+              // console.log(newRules)
 
               chrome.declarativeNetRequest.updateDynamicRules({
                 removeRuleIds: oldRuleIds,
