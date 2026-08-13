@@ -36,12 +36,30 @@ class PageManipulationModule extends REXServiceWorkerModule {
 
       for (const rule of this.urlRedirects) {
         if (rule.pattern !== undefined && rule.pattern.length > 0 && (rule.mode === undefined || rule.mode === 'regex')) {
-          const regex:RegExp = new RegExp(rule.pattern)
+          if (rule.exceptions !== undefined && check.arrayLike(rule.exceptions)) {
+            for (const exception of rule.exceptions) {
+              try {
+                const regex:RegExp = new RegExp(exception)
 
-          if (regex.test(tabUrl)) {
-            chrome.tabs.update(tabId, { url: rule.destination })
+                if (regex.test(tabUrl)) {
+                  return // Exception - do not block
+                }
+              } catch (err) {
+                console.log(`[rex-page-manipulation] Error parsing exception ("${exception}") for local blocking: ${err}`)
+              }
+            }
+          }
 
-            return
+          try {
+            const regex:RegExp = new RegExp(rule.pattern)
+
+            if (regex.test(tabUrl)) {
+              chrome.tabs.update(tabId, { url: rule.destination })
+
+              return
+            }
+          } catch (err) {
+            console.log(`[rex-page-manipulation] Error parsing pattern ("${rule.pattern}") for local blocking: ${err}`)
           }
         }
       }
@@ -61,7 +79,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
         let nextId = 1
 
         if (response !== null) {
-          nextId = Math.floor((response + 1) % (2**31 - 1))
+          nextId = Math.floor(response % (2**31 - 1)) + 1
         }
 
         const storeNext = {
@@ -215,7 +233,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
                 if (mode === 'urlFilter') {
                   delete newRule.condition.regexFilter
 
-                  newRule.condition.urlFilter = pattern
+                  newRule.condition.urlFilter = exception
                 }
 
                 newRules.push(newRule)
