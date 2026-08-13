@@ -35,7 +35,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
       }
 
       for (const rule of this.urlRedirects) {
-        if (rule.mode === undefined || rule.mode === 'regex') {
+        if (rule.pattern !== undefined && rule.pattern !== '' && (rule.mode === undefined || rule.mode === 'regex')) {
           const regex:RegExp = new RegExp(rule.pattern)
 
           if (regex.test(tabUrl)) {
