@@ -35,7 +35,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
       }
 
       for (const rule of this.urlRedirects) {
-        if (rule.pattern !== undefined && rule.pattern !== '' && (rule.mode === undefined || rule.mode === 'regex')) {
+        if (rule.pattern !== undefined && rule.pattern.length > 0 && (rule.mode === undefined || rule.mode === 'regex')) {
           const regex:RegExp = new RegExp(rule.pattern)
 
           if (regex.test(tabUrl)) {
@@ -132,6 +132,10 @@ class PageManipulationModule extends REXServiceWorkerModule {
       let mode = 'regex'
       let pattern = configRule.pattern
 
+      if (configRule.mode !== undefined) {
+        mode = configRule.mode
+      }
+
       if (pattern === undefined && configRule['url_filter'] !== undefined) { // Legacy compatibility mode. Remove when ok
         mode = 'urlFilter'
         pattern = configRule['url_filter']
@@ -193,7 +197,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
                   id: exceptionRuleId,
                   priority: priority + 100,
                   condition: {
-                    urlFilter: exception,
+                    regexFilter: exception,
                     resourceTypes: [
                       'main_frame',
                       'sub_frame',
