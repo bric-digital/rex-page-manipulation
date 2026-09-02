@@ -24,7 +24,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
     this.refreshConfiguration()
 
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-      let tabUrl:string = ''
+      let tabUrl:string = '' // eslint-disable-line no-useless-assignment
       
       if (tab.url !== undefined) {
         tabUrl = tab.url
@@ -386,6 +386,8 @@ class PageManipulationModule extends REXServiceWorkerModule {
           return true
         } else {
           rexCorePlugin.generateHash(message.content, 'SHA-512').then((hash) => {
+            console.log(`[rex-page-manipulation] Got hash "${hash}" for "${message.content}}".`)
+
             if (hash !== null) {
               let evalValue = hash
 
@@ -402,19 +404,25 @@ class PageManipulationModule extends REXServiceWorkerModule {
                   if (evalValue >= startRange && evalValue <= endRange) {
                     sendResponse(true)
 
-                    return
+                    return true
                   }
                 }
+              } else if (condition.equals !== null) {
+                sendResponse(condition.equals == hash)
+
+                return true
               }
             }
 
             sendResponse(false)
 
-            return
+            return true
           })
 
           return true
         }
+      } else {
+        console.log(`[rex-page-manipulation] Unknown pageManipulationEvaluate message: ${JSON.stringify(message, null, ' ')}`)
       }
 
       sendResponse(false)

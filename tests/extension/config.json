@@ -90,6 +90,33 @@
               "use": [8, 16],
               "within_range": ["00000000", "80000000"]
             }]
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "yahoo_domain",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "text", "transform": "raw-url-domain" },
+              "equals": "2072ad6184c46c2441d2e43b6ea8822bf9fc0a4d642c89333b18d02040268023766a7197efb9ccca9a63b7b4e1e553ef0843cdd7609c8c76350fad76bffd796a"
+            }]
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "google_com_exact",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "text", "transform": "raw-url-host" },
+              "equals": "a5b5955a4db31736f9dfd45c89c12331e0370074fc7fec0ac4d189a62391bf7060287f957ce67cf3adcac7a4353a7a8241e33084a9b543cbb3f39770970a41b2"
+            }]
+          }, {
+            "action": "add_class",
+            "selector": "a[id^='link-']",
+            "class_name": "local_google_com_exact",
+            "conditions": [{
+              "operation": "calculate-sha512-hash",
+              "content": { "source": "text", "transform": "raw-url-host" },
+              "equals": "390814bedbf8619d25c5e9e6c1d702f4ac042124f1c4c8c68099f1ffff149f7ca91cf9127fa94db5df998e78bcdf787e8295c9ed1f5b0dca3f66a0e0eefe1c71"
+            }]
           }]
         }    
     ]

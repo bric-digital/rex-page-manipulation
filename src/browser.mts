@@ -380,6 +380,8 @@ class PageManipulationModule extends REXClientModule {
   }
 
   resolveContent(element:HTMLElement, content:REXPageElementAddClassRuleConditionContent) {
+    console.log(`[rex-page-manipulation] resolveContent: ${JSON.stringify(content, null, ' ')}`)
+
     let value:string|null|undefined = null
 
     if (content === undefined) {
@@ -393,15 +395,35 @@ class PageManipulationModule extends REXClientModule {
         } else {
           value = $(element).attr(content.name)
         }
-     }
+      } else if (content.source === 'text') {
+        value = $(element).text()
+      }
     }
 
     if (value !== null && value !== undefined) {
       if (content.transform == 'domain') {
-        const url = URL.parse(value, window.location.href)
+        for (const token of value.split(/\s+/)) {
+          const url = URL.parse(token, window.location.href)
 
-        if (url !== null) {
-          return psl.get(url.hostname)
+          if (url !== null) {
+            return psl.get(url.hostname)
+          }
+        }
+      } else if (content.transform == 'raw-url-domain') {
+        for (const token of value.split(/\s+/)) {
+          const url = URL.parse(token)
+
+          if (url !== null) {
+            return psl.get(url.hostname)
+          }
+        }
+      } else if (content.transform == 'raw-url-host') {
+        for (const token of value.split(/\s+/)) {
+          const url = URL.parse(token)
+
+          if (url !== null) {
+            return url.hostname
+          }
         }
       }
     }

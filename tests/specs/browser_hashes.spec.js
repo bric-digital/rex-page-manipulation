@@ -122,5 +122,10 @@ test.describe('REX Page Manipulation: Hash Generation and Manipulation', () => {
     await expect(await page.locator('#li-10')).not.toContainClass('within_marker');
     await expect(await page.locator('#link-10')).not.toContainClass('exception_marker');
     await expect(await page.locator('#link-10')).not.toContainClass('no_conditions');
+
+    await expect(await page.locator('#link-101')).toContainClass('yahoo_domain');
+    await expect(await page.locator('#link-102')).toContainClass('yahoo_domain');
+    await expect(await page.locator('#link-103')).toContainClass('google_com_exact');
+    await expect(await page.locator('#link-104')).toContainClass('local_google_com_exact');
   });
 })
