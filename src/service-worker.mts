@@ -39,7 +39,21 @@ class PageManipulationModule extends REXServiceWorkerModule {
           base_url: 'URL to apply the associated actions to.',
           actions: [{
             selector: 'jQuery selector indicating which elements to act upon.',
-            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element.'
+            action: 'String, action to apply to matched elements: "hide" to suppress element, "show" to reveal element, "report" to count element in the logged event, "add_class" to add class_name to element.',
+            class_name: 'String ("add_class" only), CSS class to add to matched elements.',
+            conditions: [{
+              operation: 'String, test to apply to the element when adding a class: "calculate-sha512-hash".',
+              content: {
+                source: 'String, where to read the value: "attr" for an attribute.',
+                name: 'String, name of the attribute to read.',
+                selector: 'String (optional), jQuery selector for a descendant to read the attribute from instead of the matched element.',
+                transform: 'String, transform to apply to the value: "domain" for its registrable domain.'
+              },
+              use: 'Array of two numbers, [start, end] character range of the hex hash to compare.',
+              within_range: 'Array of two strings, [low, high] inclusive range the hash substring must fall within.'
+            }],
+            conditions_match: 'String ("add_class" only, optional), "all" (default) if every condition must pass, "any" if one is enough.',
+            exceptions: 'Array of strings ("add_class" only, optional), content values that never pass a condition.'
           }]
         }]
       }
