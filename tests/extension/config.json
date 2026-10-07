@@ -13,6 +13,14 @@
             "delay": 1500,
             "message": "Friction test message"
         }],
+        "banner_with_message": [{
+            "base_url": "https://example.net/",
+            "delay": 1500,
+            "message": "Banner test message"
+        }, {
+            "base_url": "https://example.com/",
+            "message": "Banner over blur test message"
+        }],
         "url_redirects": [{
             "url_filter": "||coca-cola.com"
         }],

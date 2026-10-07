@@ -6,7 +6,7 @@ import psl from 'psl'
 import { REXConfiguration } from '@bric/rex-core/common'
 import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
 
-import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageManipulationBlurWithMessage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from './types.mjs'
+import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageManipulationBlurWithMessage, REXPageManipulationBannerWithMessage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from './types.mjs'
 
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
@@ -95,6 +95,58 @@ class PageManipulationModule extends REXClientModule {
     }
   }
 
+  bannerWithMessage(bannerPage:REXPageManipulationBannerWithMessage) {
+    const apply = () => {
+      // Idempotent: config refreshes or setup retries must not stack banners.
+      if (document.getElementById('rex-banner') !== null) {
+        return
+      }
+
+      const banner = document.createElement('div')
+
+      banner.id = 'rex-banner'
+      banner.textContent = bannerPage.message
+      banner.setAttribute('role', 'alert')
+      banner.setAttribute('style', 'position: fixed; top: 0; right: 0; left: 0; z-index: 2147483647; padding: 0.5em 1em; background: #b00020; color: #ffffff; font: 600 20px/1.4 system-ui, sans-serif; text-align: center;')
+
+      // Banner is a sibling of body, appended after any blur overlay, so a
+      // blur on the same page neither blurs nor covers it.
+      document.documentElement.appendChild(banner)
+
+      chrome.runtime.sendMessage({
+        'messageType': 'logEvent',
+        'event': {
+          'name': 'pdk-app-event',
+          'event_name': 'rex-page-manipulation-banner',
+          'event_details': {
+            'url': window.location.href,
+            'delay': bannerPage.delay,
+            'date': Date.now()
+          }
+        }
+      })
+
+      if (bannerPage.delay !== undefined) {
+        window.setTimeout(() => {
+          banner.remove()
+        }, bannerPage.delay)
+      }
+    }
+
+    if (document.body !== null) {
+      apply()
+    } else {
+      // Content scripts at document_start can run before <body> exists.
+      new MutationObserver((_mutations, observer) => {
+        if (document.body !== null) {
+          observer.disconnect()
+
+          apply()
+        }
+      }).observe(document.documentElement, { childList: true })
+    }
+  }
+
   setup() {
     chrome.runtime.sendMessage({
         'messageType': 'fetchConfiguration',
@@ -159,6 +211,20 @@ class PageManipulationModule extends REXClientModule {
               }
 
               this.blurWithMessage(blurPage)
+            }
+          }
+        }
+
+        const bannerPages = (this.configuration?.['banner_with_message'] as REXPageManipulationBannerWithMessage[])
+
+        if (bannerPages !== undefined) {
+          for (const bannerPage of bannerPages) {
+            if (window.location.href.toLowerCase().includes(bannerPage.base_url.toLowerCase())) {
+              if (this.debug) {
+                console.log(`Initially showing banner on ${window.location.href} for rule ${bannerPage.base_url}...`)
+              }
+
+              this.bannerWithMessage(bannerPage)
             }
           }
         }

@@ -47,12 +47,19 @@ export interface REXPageManipulationBlurWithMessage {
   message: string
 }
 
+export interface REXPageManipulationBannerWithMessage {
+  base_url: string,
+  delay?: number,
+  message: string
+}
+
 export interface REXPageManipulationConfiguration {
   debug?: boolean,
   enabled?: boolean,
   url_redirects?: REXPageRedirect[],
   obscure_page?: REXPageManipulationObscurePage[],
   blur_with_message?: REXPageManipulationBlurWithMessage[],
+  banner_with_message?: REXPageManipulationBannerWithMessage[],
   page_elements?: REXPageElementRule[]
 }
 

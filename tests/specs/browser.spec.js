@@ -70,4 +70,34 @@ test.describe('REX Page Manipulation', () => {
       });
     }).toBe('none');
   })
+
+  test('Test that banner with message shows banner and removes it after delay.', async ({ page }) => {
+    await page.goto(`https://example.net/`)
+
+    await expect(page.locator('#rex-banner')).toContainText('Banner test message')
+
+    await expect(page.locator('#rex-banner')).toHaveCount(0, { timeout: 5000 })
+  })
+
+  test('Test that banner stays readable on top of a blur on the same page.', async ({ page }) => {
+    await page.goto(`https://example.com/`)
+
+    await expect(page.locator('#rex-blur-overlay')).toHaveCount(1)
+    await expect(page.locator('#rex-banner')).toContainText('Banner over blur test message')
+
+    const bannerState = await page.evaluate(() => {
+      const banner = document.getElementById('rex-banner')
+      const box = banner.getBoundingClientRect()
+
+      return {
+        outsideBody: banner.parentElement === document.documentElement,
+        onTop: document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2) === banner
+      }
+    })
+
+    expect(bannerState).toEqual({ outsideBody: true, onTop: true })
+
+    await expect(page.locator('#rex-blur-overlay')).toHaveCount(0, { timeout: 5000 })
+    await expect(page.locator('#rex-banner')).toBeVisible()
+  })
 })
