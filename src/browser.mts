@@ -23,22 +23,16 @@ class PageManipulationModule extends REXClientModule {
     return 'PageManipulationModule'
   }
 
-  urlContains(url:string, substring:string): Promise<boolean> {
-    return new Promise((resolve) => {
-      if (substring.startsWith('this-extension:///')) {
-        const actualSubstring = `chrome-extension://${chrome.runtime.id}/`
+  urlContains(url:string, substring:string): boolean {
+    if (substring.startsWith('this-extension:///')) {
+      const actualSubstring = `chrome-extension://${chrome.runtime.id}/`
 
-        const newSubstring = substring.replaceAll('this-extension:///', actualSubstring)
+      const newSubstring = substring.replaceAll('this-extension:///', actualSubstring)
 
-        this.urlContains(url, newSubstring).then((matches:boolean) => {
-          resolve(matches)
-        })
-      } else if (url.toLowerCase().includes(substring.toLowerCase())) {
-        resolve(true)
-      } else {
-        resolve(false)
-      }
-    })
+      return this.urlContains(url, newSubstring);
+    }
+
+    return url.toLowerCase().includes(substring.toLowerCase())
   }
 
   setup() {
@@ -137,20 +131,40 @@ class PageManipulationModule extends REXClientModule {
       }
     })
 
-    new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
-      // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
-      // console.log(mutationList)
-      
-      if (this.refreshTimeout == 0) {
-        this.refreshTimeout = window.setTimeout(() => {
-          this.applyConfiguration()
+    if (this.configuration !== undefined && this.configuration['enabled']) {
+      const pageElements = this.configuration['page_elements']
 
-          this.refreshTimeout = 0
-        }, 250)
+      if (pageElements !== undefined) {
+        let observe:boolean = false
+
+        for (const elementRule of pageElements) {
+          const baseUrl = elementRule['base_url']
+
+          if (this.urlContains(window.location.href, baseUrl)) {
+            observe = true
+
+            break;
+          }
+        }
+
+        if (observe) {
+          new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
+            // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
+            // console.log(mutationList)
+            
+            if (this.refreshTimeout == 0) {
+              this.refreshTimeout = window.setTimeout(() => {
+                this.applyConfiguration()
+
+                this.refreshTimeout = 0
+              }, 250)
+            }
+          }).observe(document, {subtree: true, childList: true})
+
+          injectREXSelectors()
+        }
       }
-    }).observe(document, {subtree: true, childList: true})
-
-    injectREXSelectors()
+    }
   }
 
   applyConfiguration() {
@@ -173,204 +187,202 @@ class PageManipulationModule extends REXClientModule {
           for (const elementRule of this.configuration['page_elements']) {
             const baseUrl = elementRule['base_url']
 
-            this.urlContains(window.location.href, baseUrl).then((matches) => {
-              if (matches) {
-                // Apply rule
+            if (this.urlContains(window.location.href, baseUrl)) {
+              // Apply rule
 
+              if (this.debug) {
+                console.log(`[rex-page-manipulation] Applying page manipulation rule to ${window.location.href}...`)
+                console.log(elementRule)
+              }
+
+              elementRule.actions.forEach((action:REXPageElementRuleAction|REXPageElementAddClassRuleAction, ruleIndex) => {
                 if (this.debug) {
-                  console.log(`[rex-page-manipulation] Applying page manipulation rule to ${window.location.href}...`)
-                  console.log(elementRule)
+                  console.log(`[rex-page-manipulation] Matches for ${action.selector}: ${$(action.selector).length}.`)
                 }
 
-                elementRule.actions.forEach((action:REXPageElementRuleAction|REXPageElementAddClassRuleAction, ruleIndex) => {
-                  if (this.debug) {
-                    console.log(`[rex-page-manipulation] Matches for ${action.selector}: ${$(action.selector).length}.`)
-                  }
+                $(action.selector).each((index, element) => {
+                  if (action.action === 'hide') {
+                    if ($(element).attr('data-rex-prior-css-display') === undefined) {
+                      const oldValue = $(element).css('display')
 
-                  $(action.selector).each((index, element) => {
-                    if (action.action === 'hide') {
-                      if ($(element).attr('data-rex-prior-css-display') === undefined) {
-                        const oldValue = $(element).css('display')
-
-                        if (oldValue !== undefined) {
-                          $(element).attr('data-rex-prior-css-display', oldValue)
-                        }
-
-                        $(element).css('display', 'none')
-
-                        const key = `${action.selector}:hide`
-
-                        if (blockedCount[key] === undefined) {
-                          blockedCount[key] = 0
-                        }
-
-                        blockedCount[key] += 1
+                      if (oldValue !== undefined) {
+                        $(element).attr('data-rex-prior-css-display', oldValue)
                       }
 
-                      if (this.debug) {
-                        console.log('[rex-page-manipulation] Hide element:')
-                        console.log(action)
-                        console.log($(element))
-                      }
-                    } else if (action.action == 'show') {
-                      const originalValue = $(element).attr('data-rex-prior-css-display')
+                      $(element).css('display', 'none')
 
-                      if (originalValue !== undefined) {
-                        $(element).css('display', originalValue)
-                        $(element).removeAttr('data-rex-prior-css-display')
+                      const key = `${action.selector}:hide`
 
-                        const key = `${action.selector}:show`
-
-                        if (blockedCount[key] === undefined) {
-                          blockedCount[key] = 0
-                        }
-
-                        blockedCount[key] += 1
-                      } else {
-                        $(element).css('display', '')
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
                       }
 
-                      if (this.debug) {
-                        console.log('[rex-page-manipulation] Show element:')
-                        console.log(action)
-                        console.log($(element))
-                      }
-                    } else if (action.action == 'report') {
-                      const originalValue = $(element).attr('data-rex-reported')
+                      blockedCount[key] += 1
+                    }
 
-                      const key = `${action.selector}:report`
+                    if (this.debug) {
+                      console.log('[rex-page-manipulation] Hide element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  } else if (action.action == 'show') {
+                    const originalValue = $(element).attr('data-rex-prior-css-display')
 
-                      if (originalValue !== undefined) {
-                        // Already recorded
-                      } else {
-                        $(element).attr('data-rex-reported', `${Date.now()}`)
+                    if (originalValue !== undefined) {
+                      $(element).css('display', originalValue)
+                      $(element).removeAttr('data-rex-prior-css-display')
 
-                        if (blockedCount[key] === undefined) {
-                          blockedCount[key] = 0
-                        }
+                      const key = `${action.selector}:show`
 
-                        blockedCount[key] += 1
-                      }
-
-                      if (this.debug) {
-                        console.log('[rex-page-manipulation] Report element:')
-                        console.log(action)
-                        console.log($(element))
-                      }
-                    } else if (action.action == 'add_class') {
-                      const addClassAction:REXPageElementAddClassRuleAction = action as REXPageElementAddClassRuleAction
-
-                      const attrKey = `data-rex-classes-added-${ruleIndex}`
-                      const originalValue = $(element).attr(attrKey)
-
-                      const key = `${addClassAction.selector}:add-class`
-
-                      let exceptions = addClassAction.exceptions
-
-                      if (exceptions === undefined) {
-                        exceptions = []
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
                       }
 
-                      if (originalValue !== undefined) {
-                        // Already added
-                      } else {
-                        $(element).attr(attrKey, `${Date.now()}`)
+                      blockedCount[key] += 1
+                    } else {
+                      $(element).css('display', '')
+                    }
 
-                        const passes:boolean[] = []
+                    if (this.debug) {
+                      console.log('[rex-page-manipulation] Show element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  } else if (action.action == 'report') {
+                    const originalValue = $(element).attr('data-rex-reported')
 
-                        if (check.array(addClassAction.conditions)) {
-                          const toCheck = [...addClassAction.conditions]
+                    const key = `${action.selector}:report`
 
-                          const checkNextCondition = () => {
-                            if (toCheck.length == 0) {
-                              let matchAll = true
+                    if (originalValue !== undefined) {
+                      // Already recorded
+                    } else {
+                      $(element).attr('data-rex-reported', `${Date.now()}`)
 
-                              if (addClassAction.conditions_match === 'any') {
-                                matchAll = false
-                              }
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
+                      }
 
-                              if (matchAll && passes.includes(false)) {
-                                console.log(`[rex-page-manipulation] FAIL-ALL: ${addClassAction['class_name']}`)
-                              } else if (matchAll === false && passes.includes(true) === false) {
-                                console.log(`[rex-page-manipulation] FAIL-ANY: ${addClassAction['class_name']}`)
-                              } else {
-                                console.log(`[rex-page-manipulation] PASS: ${addClassAction['class_name']}`)
+                      blockedCount[key] += 1
+                    }
 
-                                $(element).addClass(addClassAction['class_name'])
+                    if (this.debug) {
+                      console.log('[rex-page-manipulation] Report element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  } else if (action.action == 'add_class') {
+                    const addClassAction:REXPageElementAddClassRuleAction = action as REXPageElementAddClassRuleAction
 
-                                if (blockedCount[key] === undefined) {
-                                  blockedCount[key] = 0
-                                }
+                    const attrKey = `data-rex-classes-added-${ruleIndex}`
+                    const originalValue = $(element).attr(attrKey)
 
-                                blockedCount[key] += 1
-                              }
+                    const key = `${addClassAction.selector}:add-class`
+
+                    let exceptions = addClassAction.exceptions
+
+                    if (exceptions === undefined) {
+                      exceptions = []
+                    }
+
+                    if (originalValue !== undefined) {
+                      // Already added
+                    } else {
+                      $(element).attr(attrKey, `${Date.now()}`)
+
+                      const passes:boolean[] = []
+
+                      if (check.array(addClassAction.conditions)) {
+                        const toCheck = [...addClassAction.conditions]
+
+                        const checkNextCondition = () => {
+                          if (toCheck.length == 0) {
+                            let matchAll = true
+
+                            if (addClassAction.conditions_match === 'any') {
+                              matchAll = false
+                            }
+
+                            if (matchAll && passes.includes(false)) {
+                              console.log(`[rex-page-manipulation] FAIL-ALL: ${addClassAction['class_name']}`)
+                            } else if (matchAll === false && passes.includes(true) === false) {
+                              console.log(`[rex-page-manipulation] FAIL-ANY: ${addClassAction['class_name']}`)
                             } else {
-                              const condition = toCheck.pop()
+                              console.log(`[rex-page-manipulation] PASS: ${addClassAction['class_name']}`)
 
-                              if (condition === undefined) {
+                              $(element).addClass(addClassAction['class_name'])
+
+                              if (blockedCount[key] === undefined) {
+                                blockedCount[key] = 0
+                              }
+
+                              blockedCount[key] += 1
+                            }
+                          } else {
+                            const condition = toCheck.pop()
+
+                            if (condition === undefined) {
+                              checkNextCondition()
+                            } else {
+                              const message:REXPageManipulationEvaluateMessage = {
+                                messageType: 'pageManipulationEvaluate',
+                                condition
+                              }
+
+                              const content = this.resolveContent(element, condition.content)
+
+                              if (content === null || exceptions.includes(content)) {
+                                passes.push(false)
+
                                 checkNextCondition()
                               } else {
-                                const message:REXPageManipulationEvaluateMessage = {
-                                  messageType: 'pageManipulationEvaluate',
-                                  condition
+                                if (content !== undefined && content !== null) {
+                                  message['content'] = content
                                 }
 
-                                const content = this.resolveContent(element, condition.content)
-
-                                if (content === null || exceptions.includes(content)) {
-                                  passes.push(false)
+                                chrome.runtime.sendMessage(message).then((passed) => {
+                                  passes.push(passed)
 
                                   checkNextCondition()
-                                } else {
-                                  if (content !== undefined && content !== null) {
-                                    message['content'] = content
-                                  }
-
-                                  chrome.runtime.sendMessage(message).then((passed) => {
-                                    passes.push(passed)
-
-                                    checkNextCondition()
-                                  })
-                                }
+                                })
                               }
                             }
                           }
-
-                          checkNextCondition()
-                        } else {
-                          $(element).addClass(addClassAction['class_name'])
-
-                          if (blockedCount[key] === undefined) {
-                            blockedCount[key] = 0
-                          }
-
-                          blockedCount[key] += 1
                         }
-                      }
 
-                      if (this.debug) {
-                        console.log('[rex-page-manipulation] Add class element:')
-                        console.log(action)
-                        console.log($(element))
+                        checkNextCondition()
+                      } else {
+                        $(element).addClass(addClassAction['class_name'])
+
+                        if (blockedCount[key] === undefined) {
+                          blockedCount[key] = 0
+                        }
+
+                        blockedCount[key] += 1
                       }
                     }
-                  })
-                })
-              } else {
-                if (this.debug) {
-                  console.log(`[rex-page-manipulation] Skip applying page manipulation rules to ${window.location.href}...`)
-                }
-              }
 
-              if ($.isEmptyObject(blockedCount) === false) {
-                chrome.runtime.sendMessage({
-                  'messageType': 'logEvent',
-                  'event': {
-                    'name': 'page-manipulation',
-                    'url': window.location.href,
-                    'updates': blockedCount
+                    if (this.debug) {
+                      console.log('[rex-page-manipulation] Add class element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
                   }
                 })
+              })
+            } else {
+              if (this.debug) {
+                console.log(`[rex-page-manipulation] Skip applying page manipulation rules to ${window.location.href}...`)
+              }
+            }
+          }
+
+          if ($.isEmptyObject(blockedCount) === false) {
+            chrome.runtime.sendMessage({
+              'messageType': 'logEvent',
+              'event': {
+                'name': 'page-manipulation',
+                'url': window.location.href,
+                'updates': blockedCount
               }
             })
           }
