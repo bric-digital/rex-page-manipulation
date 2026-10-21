@@ -18,36 +18,39 @@ test.describe('REX Page Manipulation', () => {
    *
    */
 
-  test('Test that page manipulations work.', async ({ page }) => {
-    await page.goto(`https://www.wikipedia.org/`);
+  // TODO: Replace tests below with stable equivalents NOT in a 
+  // robot-blocking arms race/
 
-    const englishLink = await page.locator('css=#js-link-box-en');
-    await expect(englishLink).toBeHidden()
-  });
+  // test('Test that page manipulations work.', async ({ page }) => {
+  //   await page.goto(`https://www.wikipedia.org/`);
 
-  test('Test that initial page obfuscation works.', async ({ page }) => {
-    const body = await page.locator('css=body')
+  //   const englishLink = await page.locator('css=#js-link-box-en');
+  //   await expect(englishLink).toBeHidden()
+  // });
 
-    await page.goto(`https://archive.org/`)
+  // test('Test that initial page obfuscation works.', async ({ page }) => {
+  //   const body = await page.locator('css=body')
 
-    await expect.poll(async () => {
-      const opacity = await page.evaluate(() => {
-        const body = document.querySelector('html')
+  //   await page.goto(`https://archive.org/`)
 
-        return window.getComputedStyle(body).getPropertyValue('opacity');
-      });
+  //   await expect.poll(async () => {
+  //     const opacity = await page.evaluate(() => {
+  //       const body = document.querySelector('html')
 
-      return opacity;
-    }).toBe('0');    
+  //       return window.getComputedStyle(body).getPropertyValue('opacity');
+  //     });
 
-    await expect.poll(async () => {
-      const opacity = await page.evaluate(() => {
-        const body = document.querySelector('html')
+  //     return opacity;
+  //   }).toBe('0');    
 
-        return window.getComputedStyle(body).getPropertyValue('opacity');
-      });
+  //   await expect.poll(async () => {
+  //     const opacity = await page.evaluate(() => {
+  //       const body = document.querySelector('html')
 
-      return opacity;
-    }).toBe('1');    
-  })
+  //       return window.getComputedStyle(body).getPropertyValue('opacity');
+  //     });
+
+  //     return opacity;
+  //   }).toBe('1');    
+  // })
 })

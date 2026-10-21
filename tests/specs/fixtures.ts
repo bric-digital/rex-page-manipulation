@@ -47,6 +47,10 @@ export const test = base.extend<{
       serviceWorker = await context.waitForEvent('serviceworker');
     }
 
+    serviceWorker.on('console', msg => {
+      console.log(msg);
+    })
+
     use(serviceWorker)
       .then(() => {
         context.close();

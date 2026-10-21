@@ -4,9 +4,11 @@ import check from 'check-types'
 import psl from 'psl'
 
 import { REXConfiguration } from '@bric/rex-core/common'
-import { REXClientModule, registerREXModule } from '@bric/rex-core/browser'
+import { REXClientModule, registerREXModule, injectREXSelectors } from '@bric/rex-core/browser'
 
 import { REXPageManipulationConfiguration, REXPageManipulationObscurePage, REXPageElementRuleAction, REXPageElementAddClassRuleAction, REXPageManipulationEvaluateMessage, REXPageElementAddClassRuleConditionContent } from './types.mjs'
+
+// TODO add hinting of elements to expect to improve the obscure behavior
 
 class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
@@ -21,184 +23,148 @@ class PageManipulationModule extends REXClientModule {
     return 'PageManipulationModule'
   }
 
-  urlContains(url:string, substring:string): Promise<boolean> {
-    return new Promise((resolve) => {
-      if (substring.startsWith('this-extension:///')) {
-        const actualSubstring = `chrome-extension://${chrome.runtime.id}/`
+  urlContains(url:string, substring:string): boolean {
+    if (substring.startsWith('this-extension:///')) {
+      const actualSubstring = `chrome-extension://${chrome.runtime.id}/`
 
-        const newSubstring = substring.replaceAll('this-extension:///', actualSubstring)
+      const newSubstring = substring.replaceAll('this-extension:///', actualSubstring)
 
-        this.urlContains(url, newSubstring).then((matches:boolean) => {
-          resolve(matches)
-        })
-      } else if (url.toLowerCase().includes(substring.toLowerCase())) {
-        resolve(true)
-      } else {
-        resolve(false)
-      }
-    })
+      return this.urlContains(url, newSubstring);
+    }
+
+    return url.toLowerCase().includes(substring.toLowerCase())
   }
 
   setup() {
     chrome.runtime.sendMessage({
-        'messageType': 'fetchConfiguration',
-      }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-        const configuration = response as REXConfiguration
+      'messageType': 'fetchConfiguration',
+    }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      const configuration = response as REXConfiguration
 
-        this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
+      this.configuration = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
-        if (this.debug) {
-          console.log(`Got config...`)
-          console.log(this.configuration)
-        }
+      if (this.debug) {
+        console.log(`[rex-page-manipulation] Got config...`)
+        console.log(this.configuration)
+      }
 
-        const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
+      const obscurePage = (this.configuration['obscure_page'] as REXPageManipulationObscurePage[])
 
-        if (obscurePage !== undefined) {
-          for (const obscure of obscurePage) {
+      if (obscurePage !== undefined) {
+        for (const obscure of obscurePage) {
+          if (this.debug) {
+            console.log(`[rex-page-manipulation] Checking if obscure rule ${obscure.base_url} is active...`)
+          }
+
+          let doObscure = false
+          
+          if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
+            doObscure = true
+          }
+
+          let skipPatterns = obscure.skip;
+
+          if (check.array(skipPatterns) === false) {
+            skipPatterns = []
+          }
+
+          for (const pattern of skipPatterns) {
+            if (window.location.href.match(pattern) !== null) {
+              console.log(`[rex-page-manipulation] Skipping obscure rule ${obscure.base_url} because of ${pattern}.`)
+
+              doObscure = false
+            }
+          }
+
+          console.log(`[rex-page-manipulation] doObscure: ${doObscure}`)
+
+          if (doObscure) {
             if (this.debug) {
-              console.log(`Checking if obscure rule ${obscure.base_url} is active...`)
+              console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
             }
 
+            const body = document.querySelector('html')
+
+            if (body !== null) {
+              body.style.opacity = '0'
+
+              if (obscure.delay !== undefined) {
+                window.setTimeout(() => {
+                  body.style.opacity = '1'
+                }, obscure.delay)
+              } else {
+                window.setTimeout(() => {
+                  body.style.opacity = '1'
+                }, 1000)
+              }
+            }
+          } else {
+            const body = document.querySelector('html')
+
+            if (body !== null && body.style.opacity === '0') {
+              body.style.opacity = '1'
+            }
+          }
+        }
+      } else {
+        const body = document.querySelector('html')
+
+        if (body !== null) {
+          body.style.opacity = '1'
+        }
+      }
+
+      if (this.refreshTimeout == 0) {
+        this.refreshTimeout = window.setTimeout(() => {
+          this.applyConfiguration()
+
+          this.refreshTimeout = 0
+        }, 250)
+      }
+    }).catch((err:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+      console.log(`[rex-page-manipulation] Error unobscuring page: ${err}`)
+
+      const body = document.querySelector('html')
+
+      if (body !== null) {
+        body.style.opacity = '1'
+      }
+    })
+
+    if (this.configuration !== undefined && this.configuration['enabled']) {
+      const pageElements = this.configuration['page_elements']
+
+      if (pageElements !== undefined) {
+        let observe:boolean = false
+
+        for (const elementRule of pageElements) {
+          const baseUrl = elementRule['base_url']
+
+          if (this.urlContains(window.location.href, baseUrl)) {
+            observe = true
+
+            break;
+          }
+        }
+
+        if (observe) {
+          new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
+            // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
+            // console.log(mutationList)
             
-            if (window.location.href.toLowerCase().includes(obscure.base_url.toLowerCase())) {
-              if (this.debug) {
-                console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
-              }
+            if (this.refreshTimeout == 0) {
+              this.refreshTimeout = window.setTimeout(() => {
+                this.applyConfiguration()
 
-              const body = document.querySelector('html')
-
-              if (body !== null) {
-                body.style.opacity = '0'
-
-                if (obscure.delay !== undefined) {
-                  window.setTimeout(() => {
-                    body.style.opacity = '1'
-                  }, obscure.delay)
-                }
-              }
+                this.refreshTimeout = 0
+              }, 250)
             }
-          }
+          }).observe(document, {subtree: true, childList: true})
+
+          injectREXSelectors()
         }
-
-        if (this.refreshTimeout == 0) {
-          this.refreshTimeout = window.setTimeout(() => {
-            this.applyConfiguration()
-
-            this.refreshTimeout = 0
-          }, 250)
-        }
-      })
-
-    new MutationObserver(() => {
-        if (this.refreshTimeout == 0) {
-          this.refreshTimeout = window.setTimeout(() => {
-            this.applyConfiguration()
-
-            this.refreshTimeout = 0
-          }, 250)
-        }
-    }).observe(document, {subtree: true, childList: true});
-
-    // Install custom jQuery selectors
-
-    $.expr.pseudos.containsInsensitive = $.expr.createPseudo(function (query) {
-      const queryUpper = query.toUpperCase()
-
-      return function (elem) {
-        return $(elem).text().toUpperCase().includes(queryUpper)
       }
-    })
-
-    $.expr.pseudos.containsInsensitiveAny = $.expr.createPseudo(function (queryItems) {
-      queryItems = JSON.parse(queryItems)
-
-      return function (elem) {
-        for (const queryItem of queryItems) {
-          const queryUpper = queryItem.toUpperCase()
-
-          if ($(elem).text().toUpperCase().includes(queryUpper)) {
-            return true
-          }
-        }
-
-        return false
-      }
-    })
-
-    $.expr.pseudos.imageAltTagContainsInsensitiveAny = $.expr.createPseudo(function (queryItems) {
-      queryItems = JSON.parse(queryItems)
-
-      return function (elem) {
-        for (const queryItem of queryItems) {
-          const queryUpper = queryItem.toUpperCase()
-
-          const altText = $(elem).attr('alt')
-
-          if (altText !== undefined && altText !== null) {
-            if (altText.toUpperCase().includes(queryUpper)) {
-              return true
-            }
-          }
-        }
-
-        return false
-      }
-    })
-
-    $.expr.pseudos.withinPage = $.expr.createPseudo(function () {
-      const width = Math.max(document.body.scrollWidth, document.documentElement.scrollWidth, document.body.offsetWidth, document.documentElement.offsetWidth, document.documentElement.clientWidth)
-      const height = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.body.offsetHeight, document.documentElement.offsetHeight, document.documentElement.clientHeight)
-
-      return function (elem) {
-        const position = elem.getBoundingClientRect()
-
-        if (position.x > width) {
-          return false
-        }
-
-        if (position.y > height) {
-          return false
-        }
-
-        if ((position.x + position.width) < 0) {
-          return false
-        }
-
-        if ((position.y + position.height) < 0) {
-          return false
-        }
-
-        return true
-      }
-    })
-
-    $.expr.pseudos.cssIs = $.expr.createPseudo(function (definition) {
-      const tokens = definition.split(':')
-
-      const property = tokens[0].trim()
-      const value = tokens[1].trim()
-
-      return function (elem) {
-        const actualValue = $(elem).css(property)
-
-        return actualValue === value
-      }
-    })
-
-    $.expr.pseudos.trimmedTextEquals = $.expr.createPseudo((pattern) => {
-      return function(elem: Element) : boolean {
-        const text:string = $(elem).text()
-
-        if (text !== null) {
-          const matches = text.match("^" + pattern + "$")
-
-          return (matches !== null && matches.length > 0)
-        }
-
-        return false
-      }
-    })
+    }
   }
 
   applyConfiguration() {
@@ -210,7 +176,7 @@ class PageManipulationModule extends REXClientModule {
       }
 
       if (this.debug) {
-        console.log(`[PageManipulation] Configuration:`)
+        console.log(`[rex-page-manipulation] Configuration:`)
         console.log(this.configuration)
       }
 
@@ -221,204 +187,202 @@ class PageManipulationModule extends REXClientModule {
           for (const elementRule of this.configuration['page_elements']) {
             const baseUrl = elementRule['base_url']
 
-            this.urlContains(window.location.href, baseUrl).then((matches) => {
-              if (matches) {
-                // Apply rule
+            if (this.urlContains(window.location.href, baseUrl)) {
+              // Apply rule
 
+              if (this.debug) {
+                console.log(`[rex-page-manipulation] Applying page manipulation rule to ${window.location.href}...`)
+                console.log(elementRule)
+              }
+
+              elementRule.actions.forEach((action:REXPageElementRuleAction|REXPageElementAddClassRuleAction, ruleIndex) => {
                 if (this.debug) {
-                  console.log(`Applying page manipulation rule to ${window.location.href}...`)
-                  console.log(elementRule)
+                  console.log(`[rex-page-manipulation] Matches for ${action.selector}: ${$(action.selector).length}.`)
                 }
 
-                elementRule.actions.forEach((action:REXPageElementRuleAction|REXPageElementAddClassRuleAction, ruleIndex) => {
-                  if (this.debug) {
-                    console.log(`Matches for ${action.selector}: ${$(action.selector).length}.`)
-                  }
+                $(action.selector).each((index, element) => {
+                  if (action.action === 'hide') {
+                    if ($(element).attr('data-rex-prior-css-display') === undefined) {
+                      const oldValue = $(element).css('display')
 
-                  $(action.selector).each((index, element) => {
-                    if (action.action === 'hide') {
-                      if ($(element).attr('data-rex-prior-css-display') === undefined) {
-                        const oldValue = $(element).css('display')
-
-                        if (oldValue !== undefined) {
-                          $(element).attr('data-rex-prior-css-display', oldValue)
-                        }
-
-                        $(element).css('display', 'none')
-
-                        const key = `${action.selector}:hide`
-
-                        if (blockedCount[key] === undefined) {
-                          blockedCount[key] = 0
-                        }
-
-                        blockedCount[key] += 1
+                      if (oldValue !== undefined) {
+                        $(element).attr('data-rex-prior-css-display', oldValue)
                       }
 
-                      if (this.debug) {
-                        console.log('[PageManipulation] Hide element:')
-                        console.log(action)
-                        console.log($(element))
-                      }
-                    } else if (action.action == 'show') {
-                      const originalValue = $(element).attr('data-rex-prior-css-display')
+                      $(element).css('display', 'none')
 
-                      if (originalValue !== undefined) {
-                        $(element).css('display', originalValue)
-                        $(element).removeAttr('data-rex-prior-css-display')
+                      const key = `${action.selector}:hide`
 
-                        const key = `${action.selector}:show`
-
-                        if (blockedCount[key] === undefined) {
-                          blockedCount[key] = 0
-                        }
-
-                        blockedCount[key] += 1
-                      } else {
-                        $(element).css('display', '')
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
                       }
 
-                      if (this.debug) {
-                        console.log('[PageManipulation] Show element:')
-                        console.log(action)
-                        console.log($(element))
-                      }
-                    } else if (action.action == 'report') {
-                      const originalValue = $(element).attr('data-rex-reported')
+                      blockedCount[key] += 1
+                    }
 
-                      const key = `${action.selector}:report`
+                    if (this.debug) {
+                      console.log('[rex-page-manipulation] Hide element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  } else if (action.action == 'show') {
+                    const originalValue = $(element).attr('data-rex-prior-css-display')
 
-                      if (originalValue !== undefined) {
-                        // Already recorded
-                      } else {
-                        $(element).attr('data-rex-reported', `${Date.now()}`)
+                    if (originalValue !== undefined) {
+                      $(element).css('display', originalValue)
+                      $(element).removeAttr('data-rex-prior-css-display')
 
-                        if (blockedCount[key] === undefined) {
-                          blockedCount[key] = 0
-                        }
+                      const key = `${action.selector}:show`
 
-                        blockedCount[key] += 1
-                      }
-
-                      if (this.debug) {
-                        console.log('[PageManipulation] Report element:')
-                        console.log(action)
-                        console.log($(element))
-                      }
-                    } else if (action.action == 'add_class') {
-                      const addClassAction:REXPageElementAddClassRuleAction = action as REXPageElementAddClassRuleAction
-
-                      const attrKey = `data-rex-classes-added-${ruleIndex}`
-                      const originalValue = $(element).attr(attrKey)
-
-                      const key = `${addClassAction.selector}:add-class`
-
-                      let exceptions = addClassAction.exceptions
-
-                      if (exceptions === undefined) {
-                        exceptions = []
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
                       }
 
-                      if (originalValue !== undefined) {
-                        // Already added
-                      } else {
-                        $(element).attr(attrKey, `${Date.now()}`)
+                      blockedCount[key] += 1
+                    } else {
+                      $(element).css('display', '')
+                    }
 
-                        const passes:boolean[] = []
+                    if (this.debug) {
+                      console.log('[rex-page-manipulation] Show element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  } else if (action.action == 'report') {
+                    const originalValue = $(element).attr('data-rex-reported')
 
-                        if (check.array(addClassAction.conditions)) {
-                          const toCheck = [...addClassAction.conditions]
+                    const key = `${action.selector}:report`
 
-                          const checkNextCondition = () => {
-                            if (toCheck.length == 0) {
-                              let matchAll = true
+                    if (originalValue !== undefined) {
+                      // Already recorded
+                    } else {
+                      $(element).attr('data-rex-reported', `${Date.now()}`)
 
-                              if (addClassAction.conditions_match === 'any') {
-                                matchAll = false
-                              }
+                      if (blockedCount[key] === undefined) {
+                        blockedCount[key] = 0
+                      }
 
-                              if (matchAll && passes.includes(false)) {
-                                console.log(`FAIL-ALL: ${addClassAction['class_name']}`)
-                              } else if (matchAll === false && passes.includes(true) === false) {
-                                console.log(`FAIL-ANY: ${addClassAction['class_name']}`)
-                              } else {
-                                console.log(`PASS: ${addClassAction['class_name']}`)
+                      blockedCount[key] += 1
+                    }
 
-                                $(element).addClass(addClassAction['class_name'])
+                    if (this.debug) {
+                      console.log('[rex-page-manipulation] Report element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
+                  } else if (action.action == 'add_class') {
+                    const addClassAction:REXPageElementAddClassRuleAction = action as REXPageElementAddClassRuleAction
 
-                                if (blockedCount[key] === undefined) {
-                                  blockedCount[key] = 0
-                                }
+                    const attrKey = `data-rex-classes-added-${ruleIndex}`
+                    const originalValue = $(element).attr(attrKey)
 
-                                blockedCount[key] += 1
-                              }
+                    const key = `${addClassAction.selector}:add-class`
+
+                    let exceptions = addClassAction.exceptions
+
+                    if (exceptions === undefined) {
+                      exceptions = []
+                    }
+
+                    if (originalValue !== undefined) {
+                      // Already added
+                    } else {
+                      $(element).attr(attrKey, `${Date.now()}`)
+
+                      const passes:boolean[] = []
+
+                      if (check.array(addClassAction.conditions)) {
+                        const toCheck = [...addClassAction.conditions]
+
+                        const checkNextCondition = () => {
+                          if (toCheck.length == 0) {
+                            let matchAll = true
+
+                            if (addClassAction.conditions_match === 'any') {
+                              matchAll = false
+                            }
+
+                            if (matchAll && passes.includes(false)) {
+                              console.log(`[rex-page-manipulation] FAIL-ALL: ${addClassAction['class_name']}`)
+                            } else if (matchAll === false && passes.includes(true) === false) {
+                              console.log(`[rex-page-manipulation] FAIL-ANY: ${addClassAction['class_name']}`)
                             } else {
-                              const condition = toCheck.pop()
+                              console.log(`[rex-page-manipulation] PASS: ${addClassAction['class_name']}`)
 
-                              if (condition === undefined) {
+                              $(element).addClass(addClassAction['class_name'])
+
+                              if (blockedCount[key] === undefined) {
+                                blockedCount[key] = 0
+                              }
+
+                              blockedCount[key] += 1
+                            }
+                          } else {
+                            const condition = toCheck.pop()
+
+                            if (condition === undefined) {
+                              checkNextCondition()
+                            } else {
+                              const message:REXPageManipulationEvaluateMessage = {
+                                messageType: 'pageManipulationEvaluate',
+                                condition
+                              }
+
+                              const content = this.resolveContent(element, condition.content)
+
+                              if (content === null || exceptions.includes(content)) {
+                                passes.push(false)
+
                                 checkNextCondition()
                               } else {
-                                const message:REXPageManipulationEvaluateMessage = {
-                                  messageType: 'pageManipulationEvaluate',
-                                  condition
+                                if (content !== undefined && content !== null) {
+                                  message['content'] = content
                                 }
 
-                                const content = this.resolveContent(element, condition.content)
-
-                                if (content === null || exceptions.includes(content)) {
-                                  passes.push(false)
+                                chrome.runtime.sendMessage(message).then((passed) => {
+                                  passes.push(passed)
 
                                   checkNextCondition()
-                                } else {
-                                  if (content !== undefined && content !== null) {
-                                    message['content'] = content
-                                  }
-
-                                  chrome.runtime.sendMessage(message).then((passed) => {
-                                    passes.push(passed)
-
-                                    checkNextCondition()
-                                  })
-                                }
+                                })
                               }
                             }
                           }
-
-                          checkNextCondition()
-                        } else {
-                          $(element).addClass(addClassAction['class_name'])
-
-                          if (blockedCount[key] === undefined) {
-                            blockedCount[key] = 0
-                          }
-
-                          blockedCount[key] += 1
                         }
-                      }
 
-                      if (this.debug) {
-                        console.log('[PageManipulation] Add class element:')
-                        console.log(action)
-                        console.log($(element))
+                        checkNextCondition()
+                      } else {
+                        $(element).addClass(addClassAction['class_name'])
+
+                        if (blockedCount[key] === undefined) {
+                          blockedCount[key] = 0
+                        }
+
+                        blockedCount[key] += 1
                       }
                     }
-                  })
-                })
-              } else {
-                if (this.debug) {
-                  console.log(`[PageManipulation] Skip applying page manipulation rules to ${window.location.href}...`)
-                }
-              }
 
-              if ($.isEmptyObject(blockedCount) === false) {
-                chrome.runtime.sendMessage({
-                  'messageType': 'logEvent',
-                  'event': {
-                    'name': 'page-manipulation',
-                    'url': window.location.href,
-                    'updates': blockedCount
+                    if (this.debug) {
+                      console.log('[rex-page-manipulation] Add class element:')
+                      console.log(action)
+                      console.log($(element))
+                    }
                   }
                 })
+              })
+            } else {
+              if (this.debug) {
+                console.log(`[rex-page-manipulation] Skip applying page manipulation rules to ${window.location.href}...`)
+              }
+            }
+          }
+
+          if ($.isEmptyObject(blockedCount) === false) {
+            chrome.runtime.sendMessage({
+              'messageType': 'logEvent',
+              'event': {
+                'name': 'page-manipulation',
+                'url': window.location.href,
+                'updates': blockedCount
               }
             })
           }
@@ -428,6 +392,8 @@ class PageManipulationModule extends REXClientModule {
   }
 
   resolveContent(element:HTMLElement, content:REXPageElementAddClassRuleConditionContent) {
+    console.log(`[rex-page-manipulation] resolveContent: ${JSON.stringify(content, null, ' ')}`)
+
     let value:string|null|undefined = null
 
     if (content === undefined) {
@@ -441,15 +407,35 @@ class PageManipulationModule extends REXClientModule {
         } else {
           value = $(element).attr(content.name)
         }
-     }
+      } else if (content.source === 'text') {
+        value = $(element).text()
+      }
     }
 
     if (value !== null && value !== undefined) {
       if (content.transform == 'domain') {
-        const url = URL.parse(value, window.location.href)
+        for (const token of value.split(/\s+/)) {
+          const url = URL.parse(token, window.location.href)
 
-        if (url !== null) {
-          return psl.get(url.hostname)
+          if (url !== null) {
+            return psl.get(url.hostname)
+          }
+        }
+      } else if (content.transform == 'raw-url-domain') {
+        for (const token of value.split(/\s+/)) {
+          const url = URL.parse(token)
+
+          if (url !== null) {
+            return psl.get(url.hostname)
+          }
+        }
+      } else if (content.transform == 'raw-url-host') {
+        for (const token of value.split(/\s+/)) {
+          const url = URL.parse(token)
+
+          if (url !== null) {
+            return url.hostname
+          }
         }
       }
     }

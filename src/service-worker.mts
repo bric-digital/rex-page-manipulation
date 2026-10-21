@@ -1,11 +1,13 @@
 import check from 'check-types'
 
 import { REXConfiguration } from '@bric/rex-core/common'
+import { REXStackOperator } from '@bric/rex-types/types'
+
 import rexCorePlugin, { REXServiceWorkerModule, registerREXModule } from '@bric/rex-core/service-worker'
 import { REXPageRedirect, REXPageManipulationConfiguration } from './types.mjs'
 
 class PageManipulationModule extends REXServiceWorkerModule {
-  urlRedirects?:REXPageRedirect[] = []
+  urlRedirects:REXPageRedirect[] = []
   // pageElements = []
 
   debug:boolean = false
@@ -20,6 +22,77 @@ class PageManipulationModule extends REXServiceWorkerModule {
 
   setup() {
     this.refreshConfiguration()
+
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      let tabUrl:string = '' // eslint-disable-line no-useless-assignment
+      
+      if (tab.url !== undefined) {
+        tabUrl = tab.url
+      } else if (changeInfo.url !== undefined) {
+        tabUrl = changeInfo.url
+      } else {
+        return
+      }
+
+      for (const rule of this.urlRedirects) {
+        if (rule.pattern !== undefined && rule.pattern.length > 0 && (rule.mode === undefined || rule.mode === 'regex')) {
+          if (rule.exceptions !== undefined && check.arrayLike(rule.exceptions)) {
+            for (const exception of rule.exceptions) {
+              try {
+                const regex:RegExp = new RegExp(exception)
+
+                if (regex.test(tabUrl)) {
+                  return // Exception - do not block
+                }
+              } catch (err) {
+                console.log(`[rex-page-manipulation] Error parsing exception ("${exception}") for local blocking: ${err}`)
+              }
+            }
+          }
+
+          try {
+            const regex:RegExp = new RegExp(rule.pattern)
+
+            if (regex.test(tabUrl)) {
+              chrome.tabs.update(tabId, { url: rule.destination })
+
+              return
+            }
+          } catch (err) {
+            console.log(`[rex-page-manipulation] Error parsing pattern ("${rule.pattern}") for local blocking: ${err}`)
+          }
+        }
+      }
+    })
+  }
+
+  fetchNextRuleId(): Promise<number> {
+    return new Promise<number>((resolve) => {
+      const lookupKey:string = 'PageManipulationModuleLastRuleId'
+      
+      const fetchLast = {
+        messageType: 'fetchValue',
+        key: lookupKey
+      }
+
+      rexCorePlugin.handleMessage(fetchLast, this, (response:number) => {
+        let nextId = 1
+
+        if (response !== null) {
+          nextId = Math.floor(response % (2**31 - 1)) + 1
+        }
+
+        const storeNext = {
+          messageType: 'storeValue',
+          key: lookupKey,
+          value: nextId
+        }
+
+        rexCorePlugin.handleMessage(storeNext, this, (response) => { // eslint-disable-line @typescript-eslint/no-unused-vars
+          resolve(nextId)
+        })
+      })
+    })
   }
 
   configurationDetails():any { // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -53,7 +126,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
           const pageManipulationConfig = ((configuration as any)['page_manipulation'] as REXPageManipulationConfiguration) // eslint-disable-line @typescript-eslint/no-explicit-any
 
           if (this.debug) {
-            console.log(`[PageManipulation] Configuration:`)
+            console.log(`[rex-page-manipulation] Configuration:`)
             console.log(pageManipulationConfig)
           }
 
@@ -70,43 +143,113 @@ class PageManipulationModule extends REXServiceWorkerModule {
       })
   }
 
-  parseRedirect(configRule:REXPageRedirect, id:number, priority:number):chrome.declarativeNetRequest.Rule {
-    const newRule:chrome.declarativeNetRequest.Rule = {
-      id,
-      priority,
-      condition: {
-        urlFilter: configRule['url_filter'],
-        resourceTypes: [
-          'main_frame',
-          'sub_frame',
-          'script',
-          'xmlhttprequest',
-          'websocket',
-          'webtransport',
-        ]
-      },
-      action: {
-        type: 'block'
-      }
-    }
+  parseRedirect(configRule:REXPageRedirect, priority:number):Promise<chrome.declarativeNetRequest.Rule[]> {
+    return new Promise<chrome.declarativeNetRequest.Rule[]>((redirectResolve) => {
+      const newRules:chrome.declarativeNetRequest.Rule[] = []
 
-    const destination = configRule.destination
+      let mode = 'regex'
+      let pattern = configRule.pattern
 
-    if (destination !== undefined) {
-      newRule.action.type = 'redirect'
-
-      const redirect = {
-        url: chrome.runtime.getURL(destination)
+      if (configRule.mode !== undefined) {
+        mode = configRule.mode
       }
 
-      if (destination.includes('://')) {
-        redirect.url = destination
+      if (pattern === undefined && configRule['url_filter'] !== undefined) { // Legacy compatibility mode. Remove when ok
+        mode = 'urlFilter'
+        pattern = configRule['url_filter']
       }
 
-      newRule.action['redirect'] = redirect
-    }
+      this.fetchNextRuleId().then((ruleId:number) => {
+        const newRule:chrome.declarativeNetRequest.Rule = {
+          id: ruleId,
+          priority,
+          condition: {
+            regexFilter: pattern,
+            resourceTypes: [
+              'main_frame',
+              'sub_frame',
+              'script',
+              'xmlhttprequest',
+              'websocket',
+              'webtransport',
+            ]
+          },
+          action: {
+            type: 'block'
+          }
+        }
 
-    return newRule
+        if (mode === 'urlFilter') {
+          delete newRule.condition.regexFilter
+
+          newRule.condition.urlFilter = pattern
+        }
+
+        const destination = configRule.destination
+
+        if (destination !== undefined) {
+          newRule.action.type = 'redirect'
+
+          const redirect = {
+            url: chrome.runtime.getURL(destination)
+          }
+
+          if (destination.includes('://')) {
+            redirect.url = destination
+          }
+
+          newRule.action['redirect'] = redirect
+        }
+
+        newRules.push(newRule)
+
+        if (configRule.exceptions !== undefined) {
+          const exceptionsStack:REXStackOperator<string> = new REXStackOperator<string>()
+
+          exceptionsStack.push(...configRule.exceptions)
+
+          exceptionsStack.run((exception:string):Promise<void> => {
+            return new Promise<void>((exceptionResolve) => {
+              this.fetchNextRuleId().then((exceptionRuleId:number) => {
+                const newRule:chrome.declarativeNetRequest.Rule = {
+                  id: exceptionRuleId,
+                  priority: priority + 100,
+                  condition: {
+                    regexFilter: exception,
+                    resourceTypes: [
+                      'main_frame',
+                      'sub_frame',
+                      'script',
+                      'xmlhttprequest',
+                      'websocket',
+                      'webtransport',
+                    ]
+                  },
+                  action: {
+                    type: 'allow'
+                  }
+                }
+
+                if (mode === 'urlFilter') {
+                  delete newRule.condition.regexFilter
+
+                  newRule.condition.urlFilter = exception
+                }
+
+                newRules.push(newRule)
+
+                exceptionResolve()
+              })
+            })
+          })
+            .then(() => {
+              redirectResolve(newRules)
+            })
+        } else {
+          redirectResolve(newRules)
+        }
+      })
+    })
   }
 
   updateConfiguration(config:REXPageManipulationConfiguration) {
@@ -116,55 +259,100 @@ class PageManipulationModule extends REXServiceWorkerModule {
       this.debug = false
     }
 
-    this.urlRedirects = config['url_redirects']
-
-    // this.pageElements = config['page_elements']
-
-    // if ([null, undefined].includes(this.pageElements)) {
-    //     this.pageElements = []
-    // }
-
-    const newRules:chrome.declarativeNetRequest.Rule[] = []
-
-    if (this.urlRedirects !== undefined) {
-      for (const redirect of this.urlRedirects) {
-        const index = this.urlRedirects.indexOf(redirect)
-        const priority = this.urlRedirects.length - index
-
-        const newRule = this.parseRedirect(redirect, (index + 1), priority)
-
-        newRules.push(newRule)
-      }
+    if (config['url_redirects'] !== undefined) {
+      this.urlRedirects = []
+      this.urlRedirects.push(...config['url_redirects'])
     }
 
     if (config.enabled) {
-      chrome.declarativeNetRequest.getDynamicRules()
-        .then((oldRules) => {
-          const oldRuleIds = []
+      const newRules:chrome.declarativeNetRequest.Rule[] = []
 
-          for (const oldRule of oldRules) {
-            if (['redirect', 'block', 'allow'].includes(oldRule.action.type)) {
-              oldRuleIds.push(oldRule.id)
+      const rulesStack:REXStackOperator<REXPageRedirect> = new REXStackOperator<REXPageRedirect>()
+
+      if (this.urlRedirects !== undefined) {
+        rulesStack.push(...this.urlRedirects)
+      }
+
+      rulesStack.run((pageRedirect:REXPageRedirect):Promise<void> => {
+        return new Promise((resolve) => {
+          this.parseRedirect(pageRedirect, 1)
+            .then((parsedRules:chrome.declarativeNetRequest.Rule[]) => {
+              newRules.push(...parsedRules)
+
+              resolve()
+            })
+        })
+      })
+      .then(() => {
+        chrome.declarativeNetRequest.getDynamicRules().then((oldRules) => {
+            const oldRuleIds:number[] = []
+
+            for (const oldRule of oldRules) {
+              if (['redirect', 'block', 'allow'].includes(oldRule.action.type)) {
+                oldRuleIds.push(oldRule.id)
+              }
             }
-          }
 
-          chrome.declarativeNetRequest.updateDynamicRules({
-            removeRuleIds: oldRuleIds,
-            addRules: newRules
-          })
-          .then(() => {
-            if (this.debug) {
-              console.log(`[PageManipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
-              console.log(newRules)
-            }
+            rexCorePlugin.handleMessage({ messageType: 'fetchAllowedURLs'}, this, (urlPatterns:string[]) => {
 
-          }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
+            const allowedStack:REXStackOperator<string> = new REXStackOperator<string>()
+
+            allowedStack.push(...urlPatterns)
+
+            allowedStack.run((urlPattern:string):Promise<void> => {
+              return new Promise((resolve) => {
+                this.fetchNextRuleId().then((ruleId:number) => {
+                  const allowRule:chrome.declarativeNetRequest.Rule = {
+                    id: ruleId,
+                    priority: 1000,
+                    condition: {
+                      regexFilter: urlPattern,
+                      resourceTypes: [
+                        'script',
+                        'xmlhttprequest',
+                        'websocket',
+                        'webtransport',
+                      ]
+                    },
+                    action: {
+                      type: 'allow'
+                    }
+                  }
+
+                  newRules.push(allowRule)
+
+                  resolve()
+                })
+              })
+            }).then(() => {
+              // console.log(`[rex-page-manipulation] Old rule IDs:`)
+              // console.log(oldRuleIds)
+
+              // console.log(`[rex-page-manipulation] New rules:`)
+              // console.log(newRules)
+
+              chrome.declarativeNetRequest.updateDynamicRules({
+                removeRuleIds: oldRuleIds,
+                addRules: newRules
+              })
+              .then(() => {
+                if (this.debug) {
+                  console.log(`[rex-page-manipulation] Dynamic rules successfully updated. ${newRules.length} currently active.`)
+                  console.log(newRules)
+                }
+              }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+                console.log(`[rex-page-manipulation] Unable to update blocking rules: ${reason}`)
+              })
+            })
           })
         })
+      })
+      .catch(() => {
+
+      })
     } else {
       if (this.debug) {
-        console.log(`[PageManipulation] Module included in extension, but disabled via configuration.`)
+        console.log(`[rex-page-manipulation] Module included in extension, but disabled via configuration.`)
       }
 
       chrome.declarativeNetRequest.getDynamicRules()
@@ -176,11 +364,11 @@ class PageManipulationModule extends REXServiceWorkerModule {
           })
           .then(() => {
             if (this.debug) {
-              console.log(`[PageManipulation] Dynamic rules successfully cleared.`)
+              console.log(`[rex-page-manipulation] Dynamic rules successfully cleared.`)
             }
           }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
             if (this.debug) {
-              console.log(`[PageManipulation] Unable to update blocking rules: ${reason}`)
+              console.log(`[rex-page-manipulation] Unable to update blocking rules: ${reason}`)
             }
           })
         })
@@ -198,6 +386,8 @@ class PageManipulationModule extends REXServiceWorkerModule {
           return true
         } else {
           rexCorePlugin.generateHash(message.content, 'SHA-512').then((hash) => {
+            console.log(`[rex-page-manipulation] Got hash "${hash}" for "${message.content}}".`)
+
             if (hash !== null) {
               let evalValue = hash
 
@@ -214,25 +404,57 @@ class PageManipulationModule extends REXServiceWorkerModule {
                   if (evalValue >= startRange && evalValue <= endRange) {
                     sendResponse(true)
 
-                    return
+                    return true
                   }
                 }
+              } else if (condition.equals !== null) {
+                sendResponse(condition.equals == hash)
+
+                return true
               }
             }
 
             sendResponse(false)
 
-            return
+            return true
           })
 
           return true
         }
+      } else {
+        console.log(`[rex-page-manipulation] Unknown pageManipulationEvaluate message: ${JSON.stringify(message, null, ' ')}`)
       }
 
       sendResponse(false)
 
       return true
+    } else if (message.messageType == 'pageManipulationClearRedirects') {
+      chrome.declarativeNetRequest.getDynamicRules()
+        .then((oldRules) => {
+          const oldRuleIds = []
+
+          for (const oldRule of oldRules) {
+            if (['redirect', 'block', 'allow'].includes(oldRule.action.type)) {
+              oldRuleIds.push(oldRule.id)
+            }
+          }
+
+          chrome.declarativeNetRequest.updateDynamicRules({
+            removeRuleIds: oldRuleIds
+          })
+          .then(() => {
+            chrome.declarativeNetRequest.getDynamicRules()
+              .then((existingRules) => {
+                sendResponse(existingRules)
+              })
+          }, (reason:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+            console.log(`[rex-page-manipulation] Unable to clear blocking rules: ${reason}`)
+          })
+        })
+
+      return true
     }
+
 
     return false
   }

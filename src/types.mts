@@ -1,6 +1,9 @@
 export interface REXPageRedirect {
-  url_filter: string,
-  destination: string
+  pattern: string,
+  destination: string,
+  mode?: 'urlFilter' | 'regex',
+  exceptions?: string[],
+  url_filter?: string // Temp backward compatibility
 }
 
 export interface REXPageElementRuleAction {
@@ -38,7 +41,8 @@ export interface REXPageElementRule {
 
 export interface REXPageManipulationObscurePage {
   base_url: string,
-  delay?: number
+  delay?: number,
+  skip?: string[]
 }
 
 export interface REXPageManipulationConfiguration {
