@@ -75,7 +75,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
         key: lookupKey
       }
 
-      rexCorePlugin.handleMessage(fetchLast, this, (response:number) => {
+      rexCorePlugin.handleMessage(fetchLast, null, (response:number) => {
         let nextId = 1
 
         if (response !== null) {
@@ -88,7 +88,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
           value: nextId
         }
 
-        rexCorePlugin.handleMessage(storeNext, this, (response) => { // eslint-disable-line @typescript-eslint/no-unused-vars
+        rexCorePlugin.handleMessage(storeNext, null, (response) => { // eslint-disable-line @typescript-eslint/no-unused-vars
           resolve(nextId)
         })
       })
@@ -293,7 +293,7 @@ class PageManipulationModule extends REXServiceWorkerModule {
               }
             }
 
-            rexCorePlugin.handleMessage({ messageType: 'fetchAllowedURLs'}, this, (urlPatterns:string[]) => {
+            rexCorePlugin.handleMessage({ messageType: 'fetchAllowedURLs'}, null, (urlPatterns:string[]) => {
 
             const allowedStack:REXStackOperator<string> = new REXStackOperator<string>()
 
