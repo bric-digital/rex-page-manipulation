@@ -1,5 +1,7 @@
 import { test, expect } from './fixtures.js';
 
+// const startupDelay = 2500
+
 test.describe('REX Page Manipulation', () => {
 
   /**
@@ -7,6 +9,8 @@ test.describe('REX Page Manipulation', () => {
    * environment
    *
   test('Test that page redirects work.', async ({ page }) => {
+    await page.waitForTimeout(startupDelay);
+
     await page.goto('https://www.coca-cola.com/');
 
     // await page.waitForURL('https://www.pepsi.com/')
