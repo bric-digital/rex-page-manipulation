@@ -147,7 +147,11 @@ class PageManipulationModule extends REXClientModule {
           }
         }
 
+        console.log(`[rex-page-manipulation] observe: ${observe}`)
+
         if (observe) {
+          injectREXSelectors()
+
           new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
             // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
             // console.log(mutationList)
@@ -161,7 +165,7 @@ class PageManipulationModule extends REXClientModule {
             }
           }).observe(document, {subtree: true, childList: true})
 
-          injectREXSelectors()
+          console.log(`[rex-page-manipulation] Mutation observer added.`)
         }
       }
     }
