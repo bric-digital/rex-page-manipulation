@@ -14,6 +14,8 @@ class PageManipulationModule extends REXClientModule {
   configuration?:REXPageManipulationConfiguration
   refreshTimeout:number = 0
   debug:boolean = false
+  
+  rexSelectorsInjected:boolean = false
 
   constructor() {
     super()
@@ -150,7 +152,7 @@ class PageManipulationModule extends REXClientModule {
         console.log(`[rex-page-manipulation] observe: ${observe}`)
 
         if (observe) {
-          injectREXSelectors()
+          console.log(`[rex-page-manipulation] Injected selectors.`)
 
           new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
             // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
@@ -185,6 +187,12 @@ class PageManipulationModule extends REXClientModule {
       }
 
       if (this.configuration['enabled']) {
+        if (this.rexSelectorsInjected === false) {
+          injectREXSelectors()
+
+          this.rexSelectorsInjected = true
+        }
+
         const blockedCount:{[key: string]: number} = {}
 
         if (this.configuration['page_elements'] !== undefined) {
