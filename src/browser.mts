@@ -39,7 +39,7 @@ class PageManipulationModule extends REXClientModule {
 
   setup() {
     chrome.runtime.sendMessage({
-      'messageType': 'fetchConfiguration',
+      'messageType': 'waitForConfiguration',
     }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       const configuration = response as REXConfiguration
 
@@ -123,6 +123,47 @@ class PageManipulationModule extends REXClientModule {
           this.refreshTimeout = 0
         }, 250)
       }
+
+      if (this.configuration['enabled']) {
+        const pageElements = this.configuration['page_elements']
+
+        if (pageElements !== undefined) {
+          let observe:boolean = false
+
+          for (const elementRule of pageElements) {
+            const baseUrl = elementRule['base_url']
+
+            if (this.urlContains(window.location.href, baseUrl)) {
+              observe = true
+
+              break;
+            }
+          }
+
+          console.log(`[rex-page-manipulation] observe: ${observe}`)
+
+          if (observe) {
+            console.log(`[rex-page-manipulation] Injected selectors.`)
+
+            new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
+              // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
+              // console.log(mutationList)
+              
+              if (this.refreshTimeout == 0) {
+                this.refreshTimeout = window.setTimeout(() => {
+                  console.log(`[rex-page-manipulation] window.setTimeout`)
+                  
+                  this.applyConfiguration()
+
+                  this.refreshTimeout = 0
+                }, 250)
+              }
+            }).observe(document, {subtree: true, childList: true})
+
+            console.log(`[rex-page-manipulation] Mutation observer added.`)
+          }
+        }
+      }
     }).catch((err:any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       console.log(`[rex-page-manipulation] Error unobscuring page: ${err}`)
 
@@ -132,45 +173,6 @@ class PageManipulationModule extends REXClientModule {
         body.style.opacity = '1'
       }
     })
-
-    if (this.configuration !== undefined && this.configuration['enabled']) {
-      const pageElements = this.configuration['page_elements']
-
-      if (pageElements !== undefined) {
-        let observe:boolean = false
-
-        for (const elementRule of pageElements) {
-          const baseUrl = elementRule['base_url']
-
-          if (this.urlContains(window.location.href, baseUrl)) {
-            observe = true
-
-            break;
-          }
-        }
-
-        console.log(`[rex-page-manipulation] observe: ${observe}`)
-
-        if (observe) {
-          console.log(`[rex-page-manipulation] Injected selectors.`)
-
-          new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
-            // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
-            // console.log(mutationList)
-            
-            if (this.refreshTimeout == 0) {
-              this.refreshTimeout = window.setTimeout(() => {
-                this.applyConfiguration()
-
-                this.refreshTimeout = 0
-              }, 250)
-            }
-          }).observe(document, {subtree: true, childList: true})
-
-          console.log(`[rex-page-manipulation] Mutation observer added.`)
-        }
-      }
-    }
   }
 
   applyConfiguration() {
