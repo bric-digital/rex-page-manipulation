@@ -81,8 +81,6 @@ class PageManipulationModule extends REXClientModule {
             }
           }
 
-          console.log(`[rex-page-manipulation] doObscure: ${doObscure}`)
-
           if (doObscure) {
             if (this.debug) {
               console.log(`Initially obscuring ${window.location.href} for rule ${obscure.base_url}...`)
@@ -143,27 +141,19 @@ class PageManipulationModule extends REXClientModule {
             }
           }
 
-          console.log(`[rex-page-manipulation] observe: ${observe}`)
-
           if (observe) {
-            console.log(`[rex-page-manipulation] Injected selectors.`)
-
             new MutationObserver((mutationList, observer) => { // eslint-disable-line @typescript-eslint/no-unused-vars
               // console.log(`[rex-page-manipulation] Mutation: ${observer}`)
               // console.log(mutationList)
               
               if (this.refreshTimeout == 0) {
                 this.refreshTimeout = window.setTimeout(() => {
-                  console.log(`[rex-page-manipulation] window.setTimeout`)
-
                   this.applyConfiguration()
 
                   this.refreshTimeout = 0
                 }, 250)
               }
             }).observe(document, {subtree: true, childList: true})
-
-            console.log(`[rex-page-manipulation] Mutation observer added.`)
           }
         }
       }
