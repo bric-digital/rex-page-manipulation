@@ -169,17 +169,11 @@ class PageManipulationModule extends REXClientModule {
   }
 
   applyConfiguration() {
-    console.log('[rex-page-manipulation] applyConfiguration')
     if (this.configuration !== undefined) {
       if (this.configuration['debug'] === true) {
         this.debug = true
       } else {
         this.debug = false
-      }
-
-      if (this.debug) {
-        console.log(`[rex-page-manipulation] Configuration:`)
-        console.log(this.configuration)
       }
 
       if (this.configuration['enabled']) {
@@ -209,8 +203,6 @@ class PageManipulationModule extends REXClientModule {
                 }
 
                 $(action.selector).each((index, element) => {
-                  console.log(`[rex-page-manipulation] ${action.action}: ${index}`)
-
                   if (action.action === 'hide') {
                     if ($(element).attr('data-rex-prior-css-display') === undefined) {
                       const oldValue = $(element).css('display')
