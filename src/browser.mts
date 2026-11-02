@@ -174,6 +174,7 @@ class PageManipulationModule extends REXClientModule {
   }
 
   applyConfiguration() {
+    console.log('[rex-page-manipulation] applyConfiguration')
     if (this.configuration !== undefined) {
       if (this.configuration['debug'] === true) {
         this.debug = true
@@ -213,6 +214,8 @@ class PageManipulationModule extends REXClientModule {
                 }
 
                 $(action.selector).each((index, element) => {
+                  console.log(`[rex-page-manipulation] ${action.action}: ${index}`)
+
                   if (action.action === 'hide') {
                     if ($(element).attr('data-rex-prior-css-display') === undefined) {
                       const oldValue = $(element).css('display')
