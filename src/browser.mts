@@ -40,6 +40,9 @@ class PageManipulationModule extends REXClientModule {
   setup() {
     chrome.runtime.sendMessage({
       'messageType': 'waitForConfiguration',
+      'event': {
+        'timeout': 30000
+      }
     }).then((response:{ [name: string]: any; }) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       const configuration = response as REXConfiguration
 
@@ -152,7 +155,7 @@ class PageManipulationModule extends REXClientModule {
               if (this.refreshTimeout == 0) {
                 this.refreshTimeout = window.setTimeout(() => {
                   console.log(`[rex-page-manipulation] window.setTimeout`)
-                  
+
                   this.applyConfiguration()
 
                   this.refreshTimeout = 0
